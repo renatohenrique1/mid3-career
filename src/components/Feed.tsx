@@ -13,6 +13,7 @@ interface FeedProps {
   data: AppData
   currentUser: User
   onOpenTournament: (tournamentId: string) => void
+  onOpenMatch?: (matchId: string) => void
   onRegisterSet?: () => void
 }
 
@@ -47,6 +48,7 @@ export function Feed({
   data,
   currentUser,
   onOpenTournament,
+  onOpenMatch,
   onRegisterSet,
 }: FeedProps) {
   const [filter, setFilter] = useState<FeedFilter>('all')
@@ -150,6 +152,7 @@ export function Feed({
                 users={data.users}
                 currentUserId={currentUser.id}
                 onOpenTournament={onOpenTournament}
+                onOpenMatch={onOpenMatch}
               />
             </li>
           ))}
@@ -164,11 +167,13 @@ function FeedCard({
   users,
   currentUserId,
   onOpenTournament,
+  onOpenMatch,
 }: {
   item: FeedItem
   users: User[]
   currentUserId: string
   onOpenTournament: (tournamentId: string) => void
+  onOpenMatch?: (matchId: string) => void
 }) {
   if (item.kind === 'tournament_won') {
     const winner = userName(users, item.winnerId)
@@ -212,7 +217,22 @@ function FeedCard({
   const isTournament = item.kind === 'tournament_set'
 
   return (
-    <div className={`feed-set-card ${isTournament ? 'is-tournament' : 'is-casual'}`}>
+    <div
+      className={`feed-set-card feed-set-clickable ${isTournament ? 'is-tournament' : 'is-casual'}`}
+      role={onOpenMatch ? 'button' : undefined}
+      tabIndex={onOpenMatch ? 0 : undefined}
+      onClick={onOpenMatch ? () => onOpenMatch(match.id) : undefined}
+      onKeyDown={
+        onOpenMatch
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onOpenMatch(match.id)
+              }
+            }
+          : undefined
+      }
+    >
       <div className="feed-item-top">
         <span className={`feed-badge ${isTournament ? 'orange' : 'gray'}`}>
           {isTournament
@@ -249,7 +269,10 @@ function FeedCard({
           <button
             type="button"
             className="feed-context-chip tournament"
-            onClick={() => onOpenTournament(item.tournament.id)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenTournament(item.tournament.id)
+            }}
           >
             {item.tournament.name}
           </button>
@@ -257,6 +280,9 @@ function FeedCard({
           <span className="feed-context-chip casual">Fora de torneio</span>
         )}
       </div>
+      {onOpenMatch ? (
+        <span className="history-detail-hint">Ver detalhes</span>
+      ) : null}
     </div>
   )
 }

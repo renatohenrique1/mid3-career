@@ -9,6 +9,7 @@ import type {
   User,
 } from '../types'
 import { hashPassword, nameKey, normalizeName } from './auth'
+import { normalizeMatchEditPayload } from './matchEdits'
 import {
   isValidNickname,
   nameChangesLeft,
@@ -408,7 +409,9 @@ export function resolveMatchEdit(
   const nextMatches =
     decision === 'approved'
       ? data.matches.map((m) =>
-          m.id === request.matchId ? { ...m, ...request.payload } : m,
+          m.id === request.matchId
+            ? { ...m, ...normalizeMatchEditPayload(request.payload) }
+            : m,
         )
       : data.matches
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { describeMatchEditChanges } from '../data/matchEdits'
 import { racketLabel } from '../data/profile'
 import {
   BALL_OPTIONS,
@@ -15,14 +16,17 @@ import type {
   MatchEditRequest,
   RacketModel,
   Surface,
+  Tournament,
   User,
 } from '../types'
+import { MatchDetailModal } from './MatchDetailModal'
 
 interface MatchHistoryProps {
   matches: Match[]
   users: User[]
   currentUserId: string
   editRequests?: MatchEditRequest[]
+  tournaments?: Tournament[]
   /** Formato do torneio ou classic para validar placar */
   scoreFormat?: import('../types').TournamentFormat
   onDelete: (matchId: string) => void
@@ -53,12 +57,15 @@ export function MatchHistory({
   users,
   currentUserId,
   editRequests = [],
+  tournaments = [],
   scoreFormat = 'classic',
   onDelete,
   onRequestEdit,
   onWithdrawEdit,
   onResolveEdit,
 }: MatchHistoryProps) {
+  const [detailMatchId, setDetailMatchId] = useState<string | null>(null)
+
   const pendingByMatch = useMemo(() => {
     const map = new Map<string, MatchEditRequest>()
     for (const req of editRequests) {
@@ -66,6 +73,10 @@ export function MatchHistory({
     }
     return map
   }, [editRequests])
+
+  const detailMatch = detailMatchId
+    ? matches.find((m) => m.id === detailMatchId) ?? null
+    : null
 
   return (
     <section className="panel history-panel">
@@ -99,30 +110,37 @@ export function MatchHistory({
             return (
               <li
                 key={match.id}
-                className={`history-item surface-${match.surface}`}
+                className={`history-item history-item-clickable surface-${match.surface}`}
               >
-                <div className="history-top">
-                  <time dateTime={match.date}>{formatDate(match.date)}</time>
-                  <span className={`surface-chip ${match.surface}`}>
-                    {surfaceLabel(match.surface)}
-                  </span>
-                </div>
-                <div className="history-score">
-                  <span className={aWon ? 'winner' : ''}>{nameA}</span>
-                  <strong>
-                    {match.gamesA}–{match.gamesB}
-                  </strong>
-                  <span className={!aWon ? 'winner' : ''}>{nameB}</span>
-                </div>
-                {duration || ball || racketBits.length ? (
-                  <div className="history-extras">
-                    {duration ? <span>{duration}</span> : null}
-                    {ball ? <span>{ball}</span> : null}
-                    {racketBits.map((t) => (
-                      <span key={t!}>{t}</span>
-                    ))}
+                <button
+                  type="button"
+                  className="history-item-main"
+                  onClick={() => setDetailMatchId(match.id)}
+                >
+                  <div className="history-top">
+                    <time dateTime={match.date}>{formatDate(match.date)}</time>
+                    <span className={`surface-chip ${match.surface}`}>
+                      {surfaceLabel(match.surface)}
+                    </span>
                   </div>
-                ) : null}
+                  <div className="history-score">
+                    <span className={aWon ? 'winner' : ''}>{nameA}</span>
+                    <strong>
+                      {match.gamesA}–{match.gamesB}
+                    </strong>
+                    <span className={!aWon ? 'winner' : ''}>{nameB}</span>
+                  </div>
+                  {duration || ball || racketBits.length ? (
+                    <div className="history-extras">
+                      {duration ? <span>{duration}</span> : null}
+                      {ball ? <span>{ball}</span> : null}
+                      {racketBits.map((t) => (
+                        <span key={t!}>{t}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <span className="history-detail-hint">Ver detalhes</span>
+                </button>
 
                 {pending ? (
                   <MatchEditPending
@@ -164,6 +182,15 @@ export function MatchHistory({
           })}
         </ul>
       )}
+
+      {detailMatch ? (
+        <MatchDetailModal
+          match={detailMatch}
+          users={users}
+          tournaments={tournaments}
+          onClose={() => setDetailMatchId(null)}
+        />
+      ) : null}
     </section>
   )
 }
@@ -187,7 +214,7 @@ function MatchEditPending({
   const isOther =
     (match.playerAId === currentUserId || match.playerBId === currentUserId) &&
     !isRequester
-  const p = request.payload
+  const changes = describeMatchEditChanges(match, request.payload, users)
 
   return (
     <div className="match-edit-pending">
@@ -195,10 +222,11 @@ function MatchEditPending({
         <strong>Pedido de alteração</strong> por{' '}
         {userName(users, request.requestedById)}
       </p>
-      <p className="muted-inline">
-        Novo placar: {p.gamesA}–{p.gamesB} · {formatDate(p.date)} ·{' '}
-        {surfaceLabel(p.surface)}
-      </p>
+      <ul className="pending-edit-changes">
+        {changes.map((c) => (
+          <li key={c}>{c}</li>
+        ))}
+      </ul>
       <div className="history-actions">
         {isRequester && onWithdraw ? (
           <button

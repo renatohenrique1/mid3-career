@@ -1,4 +1,5 @@
 import { computeRanking, normalizeFormat, normalizeStructure, shouldAutoFinishTournament, tournamentMatchDateError, tournamentPairLimitError } from './ranking'
+import { normalizeMatchEditPayload } from './matchEdits'
 import type {
   AppData,
   AvatarId,
@@ -156,7 +157,7 @@ function mapMatchEditRequest(row: MatchEditRequestRow): MatchEditRequest {
     matchId: row.match_id,
     requestedById: row.requested_by_id,
     status: row.status,
-    payload: row.payload,
+    payload: normalizeMatchEditPayload(row.payload),
     createdAt: row.created_at,
     resolvedAt: row.resolved_at ?? undefined,
     resolvedById: row.resolved_by_id ?? undefined,
@@ -819,20 +820,10 @@ export const supabaseRepository: DataRepository = {
     }
 
     const resolvedAt = new Date().toISOString()
-    const { error } = await sb
-      .from('match_edit_requests')
-      .update({
-        status: decision,
-        resolved_at: resolvedAt,
-        resolved_by_id: resolverId,
-      })
-      .eq('id', requestId)
-
-    if (error) return { ok: false, error: error.message }
 
     if (decision === 'approved') {
-      const payload = row.payload as MatchEditPayload
-      const { error: updateError } = await sb
+      const payload = normalizeMatchEditPayload(row.payload)
+      const { data: updated, error: updateError } = await sb
         .from('matches')
         .update({
           match_date: payload.date,
@@ -847,9 +838,29 @@ export const supabaseRepository: DataRepository = {
           racket_b: payload.racketB ?? null,
         })
         .eq('id', row.match_id)
+        .select('id')
+        .maybeSingle()
 
       if (updateError) return { ok: false, error: updateError.message }
+      if (!updated) {
+        return {
+          ok: false,
+          error:
+            'Não foi possível atualizar o set (permissão). Rode a migration matches UPDATE no Supabase.',
+        }
+      }
     }
+
+    const { error } = await sb
+      .from('match_edit_requests')
+      .update({
+        status: decision,
+        resolved_at: resolvedAt,
+        resolved_by_id: resolverId,
+      })
+      .eq('id', requestId)
+
+    if (error) return { ok: false, error: error.message }
 
     return { ok: true }
   },

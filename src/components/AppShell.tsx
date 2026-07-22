@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { buildFeed } from '../data/feed'
 import {
   buildRoundRobinFixtures,
@@ -22,8 +22,13 @@ import type {
 } from '../types'
 import { CareerRanking } from './CareerRanking'
 import { Feed } from './Feed'
+import { MatchDetailModal } from './MatchDetailModal'
 import { MatchForm } from './MatchForm'
 import { MatchHistory } from './MatchHistory'
+import {
+  PendingEditsModal,
+  type PendingApprovalItem,
+} from './PendingEditsModal'
 import { PlayerAvatar } from './PlayerAvatar'
 import { ProfilePage } from './ProfilePage'
 import { Ranking } from './Ranking'
@@ -104,11 +109,43 @@ export function AppShell({
     null,
   )
   const [registerOpen, setRegisterOpen] = useState(false)
+  const [detailMatchId, setDetailMatchId] = useState<string | null>(null)
+  const [pendingModalOpen, setPendingModalOpen] = useState(false)
+  const [pendingModalDismissed, setPendingModalDismissed] = useState(false)
 
   const casualMatches = useMemo(
     () => matches.filter((m) => !m.tournamentId),
     [matches],
   )
+
+  const pendingApprovals = useMemo((): PendingApprovalItem[] => {
+    const items: PendingApprovalItem[] = []
+    for (const request of matchEditRequests) {
+      if (request.status !== 'pending') continue
+      if (request.requestedById === currentUser.id) continue
+      const match = matches.find((m) => m.id === request.matchId)
+      if (!match) continue
+      const isOther =
+        match.playerAId === currentUser.id ||
+        match.playerBId === currentUser.id
+      if (!isOther) continue
+      items.push({ request, match })
+    }
+    return items
+  }, [matchEditRequests, matches, currentUser.id])
+
+  useEffect(() => {
+    if (pendingApprovals.length === 0) {
+      setPendingModalOpen(false)
+      setPendingModalDismissed(false)
+      return
+    }
+    if (!pendingModalDismissed) setPendingModalOpen(true)
+  }, [pendingApprovals.length, pendingModalDismissed])
+
+  const detailMatch = detailMatchId
+    ? matches.find((m) => m.id === detailMatchId) ?? null
+    : null
 
   const feedCount = useMemo(() => buildFeed(data).length, [data])
 
@@ -323,11 +360,32 @@ export function AppShell({
           />
         ) : null}
 
+        {!registerOpen && pendingApprovals.length > 0 ? (
+          <div className="pending-edits-banner">
+            <p>
+              Você tem {pendingApprovals.length} alteração
+              {pendingApprovals.length === 1 ? '' : 'ões'} de set para
+              revisar.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary btn-compact"
+              onClick={() => {
+                setPendingModalDismissed(false)
+                setPendingModalOpen(true)
+              }}
+            >
+              Revisar
+            </button>
+          </div>
+        ) : null}
+
         {!registerOpen && area === 'feed' && !activeTournament ? (
           <Feed
             data={data}
             currentUser={currentUser}
             onOpenTournament={openTournament}
+            onOpenMatch={setDetailMatchId}
             onRegisterSet={openRegister}
           />
         ) : null}
@@ -470,6 +528,7 @@ export function AppShell({
               users={users}
               currentUserId={currentUser.id}
               editRequests={matchEditRequests}
+              tournaments={tournaments}
               scoreFormat={tournamentFormat}
               onDelete={onDeleteMatch}
               onRequestEdit={onRequestMatchEdit}
@@ -509,6 +568,7 @@ export function AppShell({
               users={users}
               currentUserId={currentUser.id}
               editRequests={matchEditRequests}
+              tournaments={tournaments}
               scoreFormat="classic"
               onDelete={onDeleteMatch}
               onRequestEdit={onRequestMatchEdit}
@@ -526,6 +586,27 @@ export function AppShell({
           />
         ) : null}
       </main>
+
+      {detailMatch ? (
+        <MatchDetailModal
+          match={detailMatch}
+          users={users}
+          tournaments={tournaments}
+          onClose={() => setDetailMatchId(null)}
+        />
+      ) : null}
+
+      {pendingModalOpen && pendingApprovals.length > 0 ? (
+        <PendingEditsModal
+          items={pendingApprovals}
+          users={users}
+          onResolve={onResolveMatchEdit}
+          onClose={() => {
+            setPendingModalOpen(false)
+            setPendingModalDismissed(true)
+          }}
+        />
+      ) : null}
 
       {!registerOpen ? (
         <button
