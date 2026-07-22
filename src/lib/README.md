@@ -1,0 +1,4 @@
+-- Tipos gerados opcionalmente depois com:
+-- npx supabase gen types typescript --project-id <ref> > src/lib/database.types.ts
+--
+-- Por enquanto o client usa tipagem flexível para facilitar a integração.
