@@ -26,6 +26,9 @@ export interface DataRepository {
     name: string
     createdById: string
     format?: TournamentFormat
+    structure?: import('../types').TournamentStructure
+    startsOn?: string
+    endsOn?: string
   }): Promise<TournamentResult>
   joinTournament(
     tournamentId: string,
@@ -34,6 +37,7 @@ export interface DataRepository {
   finishTournament(
     tournamentId: string,
     requesterId: string,
+    options?: { auto?: boolean },
   ): Promise<TournamentResult>
   addMatch(match: Omit<Match, 'id' | 'createdAt'>): Promise<MutationOk>
   deleteMatch(matchId: string, requesterId: string): Promise<MutationOk>

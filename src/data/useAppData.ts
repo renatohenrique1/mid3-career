@@ -117,6 +117,11 @@ export function useAppData() {
     async (
       name: string,
       format?: import('../types').TournamentFormat,
+      options?: {
+        structure?: import('../types').TournamentStructure
+        startsOn?: string
+        endsOn?: string
+      },
     ): Promise<{ ok: true; tournament: Tournament } | { ok: false; error: string }> => {
       if (!sessionSnapshot?.userId) {
         return { ok: false, error: 'Faça login para criar um torneio.' }
@@ -125,6 +130,9 @@ export function useAppData() {
         name,
         createdById: sessionSnapshot.userId,
         format,
+        structure: options?.structure,
+        startsOn: options?.startsOn,
+        endsOn: options?.endsOn,
       })
       if (result.ok) await refreshFromRepo()
       return result

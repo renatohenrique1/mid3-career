@@ -1,9 +1,18 @@
 import { useMemo, useState } from 'react'
 import {
+  CLASSIC_STRUCTURES,
   formatShortLabel,
+  SPECIAL_STRUCTURE,
+  structureShortLabel,
   TOURNAMENT_FORMATS,
 } from '../data/ranking'
-import type { Match, Tournament, TournamentFormat, User } from '../types'
+import type {
+  Match,
+  Tournament,
+  TournamentFormat,
+  TournamentStructure,
+  User,
+} from '../types'
 
 interface TournamentListProps {
   currentUser: User
@@ -13,6 +22,11 @@ interface TournamentListProps {
   onCreate: (
     name: string,
     format: TournamentFormat,
+    options?: {
+      structure?: TournamentStructure
+      startsOn?: string
+      endsOn?: string
+    },
   ) =>
     | { ok: true; tournament: Tournament }
     | { ok: false; error: string }
@@ -30,7 +44,7 @@ interface TournamentListProps {
 }
 
 function formatDate(iso: string) {
-  const d = new Date(iso)
+  const d = new Date(iso.includes('T') ? iso : `${iso}T12:00:00`)
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -57,6 +71,10 @@ export function TournamentList({
 }: TournamentListProps) {
   const [name, setName] = useState('')
   const [format, setFormat] = useState<TournamentFormat>('classic')
+  const [structure, setStructure] =
+    useState<TournamentStructure>('round_robin')
+  const [startsOn, setStartsOn] = useState('')
+  const [endsOn, setEndsOn] = useState('')
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
 
@@ -73,16 +91,34 @@ export function TournamentList({
     t.participantIds.includes(currentUser.id),
   ).length
 
+  function resetForm() {
+    setName('')
+    setFormat('classic')
+    setStructure('round_robin')
+    setStartsOn('')
+    setEndsOn('')
+    setError('')
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    const result = await onCreate(name, format)
+    const result = await onCreate(
+      name,
+      format,
+      format === 'classic'
+        ? { structure, startsOn, endsOn }
+        : {
+            structure: 'round_robin_double',
+            startsOn,
+            endsOn,
+          },
+    )
     if (!result.ok) {
       setError(result.error)
       return
     }
-    setName('')
-    setFormat('classic')
+    resetForm()
     setCreating(false)
     onOpen(result.tournament.id)
   }
@@ -156,6 +192,52 @@ export function TournamentList({
             </div>
           </fieldset>
 
+          {format === 'classic' ? (
+            <fieldset className="format-field">
+              <legend>Estrutura</legend>
+              <div className="format-grid" role="group">
+                {CLASSIC_STRUCTURES.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={structure === option.id ? 'active' : ''}
+                    onClick={() => setStructure(option.id)}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.blurb}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : (
+            <div className="structure-note panel">
+              <strong>{SPECIAL_STRUCTURE.label}</strong>
+              <p>{SPECIAL_STRUCTURE.blurb}</p>
+            </div>
+          )}
+
+          <div className="date-range-grid">
+            <label>
+              <span>Início</span>
+              <input
+                type="date"
+                value={startsOn}
+                onChange={(e) => setStartsOn(e.target.value)}
+                required
+              />
+            </label>
+            <label>
+              <span>Fim</span>
+              <input
+                type="date"
+                value={endsOn}
+                onChange={(e) => setEndsOn(e.target.value)}
+                required
+                min={startsOn || undefined}
+              />
+            </label>
+          </div>
+
           {error ? <p className="form-error">{error}</p> : null}
           <div className="create-actions">
             <button type="submit" className="btn btn-primary">
@@ -166,7 +248,7 @@ export function TournamentList({
               className="link-btn"
               onClick={() => {
                 setCreating(false)
-                setError('')
+                resetForm()
               }}
             >
               Cancelar
@@ -236,6 +318,7 @@ export function TournamentList({
               .filter((u): u is User => Boolean(u))
             const shown = participantUsers.slice(0, 4)
             const extra = participantUsers.length - shown.length
+            const structureChip = structureShortLabel(tournament.structure)
 
             return (
               <li
@@ -261,6 +344,9 @@ export function TournamentList({
                     <span className="format-chip">
                       {formatShortLabel(tournament.format ?? 'classic')}
                     </span>
+                    {structureChip ? (
+                      <span className="format-chip">{structureChip}</span>
+                    ) : null}
                     <span>
                       {participantUsers.length} jogador
                       {participantUsers.length === 1 ? '' : 'es'}
@@ -268,7 +354,14 @@ export function TournamentList({
                     <span>
                       {sets} set{sets === 1 ? '' : 's'}
                     </span>
-                    <span>{formatDate(tournament.createdAt)}</span>
+                    {tournament.startsOn && tournament.endsOn ? (
+                      <span>
+                        {formatDate(tournament.startsOn)} –{' '}
+                        {formatDate(tournament.endsOn)}
+                      </span>
+                    ) : (
+                      <span>{formatDate(tournament.createdAt)}</span>
+                    )}
                     {tournament.status === 'finished' && tournament.winnerId ? (
                       <span>
                         Campeão:{' '}

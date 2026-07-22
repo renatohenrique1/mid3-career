@@ -6,7 +6,12 @@ import type {
   User,
 } from '../types'
 import { hashPassword, nameKey, normalizeName } from './auth'
-import { computeRanking } from './ranking'
+import {
+  computeRanking,
+  shouldAutoFinishTournament,
+  tournamentMatchDateError,
+  tournamentPairLimitError,
+} from './ranking'
 
 const DATA_KEY = 'mid3-career-data'
 const SESSION_KEY = 'mid3-career-session'
@@ -44,6 +49,9 @@ function migrate(raw: unknown): AppData {
         status: t.status ?? 'active',
         participantIds: t.participantIds ?? [],
         format: t.format ?? 'classic',
+        structure: t.structure,
+        startsOn: t.startsOn,
+        endsOn: t.endsOn,
       }))
     : []
 
@@ -170,6 +178,9 @@ export function createTournament(input: {
   name: string
   createdById: string
   format?: import('../types').TournamentFormat
+  structure?: import('../types').TournamentStructure
+  startsOn?: string
+  endsOn?: string
 }): { ok: true; tournament: Tournament } | { ok: false; error: string } {
   const name = input.name.trim()
   if (name.length < 2) return { ok: false, error: 'Nome do torneio muito curto.' }
@@ -186,6 +197,34 @@ export function createTournament(input: {
     return { ok: false, error: 'Formato de torneio inválido.' }
   }
 
+  let structure: import('../types').TournamentStructure | undefined
+  let startsOn: string | undefined
+  let endsOn: string | undefined
+
+  startsOn = input.startsOn?.trim()
+  endsOn = input.endsOn?.trim()
+  if (!startsOn || !endsOn) {
+    return { ok: false, error: 'Informe data de início e de fim.' }
+  }
+  if (endsOn < startsOn) {
+    return { ok: false, error: 'A data de fim deve ser após o início.' }
+  }
+
+  if (format === 'classic') {
+    if (
+      input.structure !== 'round_robin' &&
+      input.structure !== 'points_league'
+    ) {
+      return {
+        ok: false,
+        error: 'Escolha a estrutura: todos contra todos ou liga por pontos.',
+      }
+    }
+    structure = input.structure
+  } else {
+    structure = 'round_robin_double'
+  }
+
   const data = loadData()
   const tournament: Tournament = {
     id: crypto.randomUUID(),
@@ -195,6 +234,9 @@ export function createTournament(input: {
     participantIds: [input.createdById],
     status: 'active',
     format,
+    structure,
+    startsOn,
+    endsOn,
   }
 
   saveData({ ...data, tournaments: [tournament, ...data.tournaments] })
@@ -228,6 +270,7 @@ export function joinTournament(
 export function finishTournament(
   tournamentId: string,
   requesterId: string,
+  options?: { auto?: boolean },
 ): { ok: true; tournament: Tournament } | { ok: false; error: string } {
   const data = loadData()
   const tournament = data.tournaments.find((t) => t.id === tournamentId)
@@ -235,7 +278,7 @@ export function finishTournament(
   if (tournament.status === 'finished') {
     return { ok: false, error: 'Torneio já encerrado.' }
   }
-  if (tournament.createdById !== requesterId) {
+  if (!options?.auto && tournament.createdById !== requesterId) {
     return { ok: false, error: 'Só quem criou o torneio pode encerrar.' }
   }
 
@@ -274,25 +317,73 @@ export function finishTournament(
   return { ok: true, tournament: finished }
 }
 
-export function addMatch(match: Omit<Match, 'id' | 'createdAt'>): AppData {
+function tryAutoFinishTournament(tournamentId: string): void {
   const data = loadData()
+  const tournament = data.tournaments.find((t) => t.id === tournamentId)
+  if (!tournament || tournament.status === 'finished') return
+
+  const tournamentMatches = data.matches.filter(
+    (m) => m.tournamentId === tournamentId,
+  )
+  const participants = data.users.filter((u) =>
+    tournament.participantIds.includes(u.id),
+  )
+
+  if (
+    !shouldAutoFinishTournament(tournament, participants, tournamentMatches)
+  ) {
+    return
+  }
+
+  finishTournament(tournamentId, tournament.createdById, { auto: true })
+}
+
+/** Encerra torneios ativos cujo período já passou (ou confrontos completos). */
+export function autoFinishDueTournaments(): void {
+  const data = loadData()
+  for (const tournament of data.tournaments) {
+    if (tournament.status !== 'active') continue
+    tryAutoFinishTournament(tournament.id)
+  }
+}
+
+export function addMatch(
+  match: Omit<Match, 'id' | 'createdAt'>,
+): { ok: true } | { ok: false; error: string } {
+  const data = loadData()
+
+  // Set avulso: só grava a partida.
+  if (!match.tournamentId) {
+    const nextMatch: Match = {
+      ...match,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    }
+    saveData({ ...data, matches: [nextMatch, ...data.matches] })
+    return { ok: true }
+  }
+
+  const tournament = data.tournaments.find((t) => t.id === match.tournamentId)
+  const windowError = tournamentMatchDateError(tournament, match.date)
+  if (windowError) return { ok: false, error: windowError }
+  if (!tournament) return { ok: false, error: 'Torneio não encontrado.' }
+
+  const tournamentMatches = data.matches.filter(
+    (m) => m.tournamentId === match.tournamentId,
+  )
+  const pairError = tournamentPairLimitError(
+    tournament,
+    tournamentMatches,
+    match.playerAId,
+    match.playerBId,
+  )
+  if (pairError) return { ok: false, error: pairError }
 
   const nextMatch: Match = {
     ...match,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }
-
-  // Set avulso: só grava a partida.
-  if (!match.tournamentId) {
-    const next = { ...data, matches: [nextMatch, ...data.matches] }
-    saveData(next)
-    return next
-  }
-
-  const tournament = data.tournaments.find((t) => t.id === match.tournamentId)
-  if (!tournament) return data
-  if (tournament.status === 'finished') return data
 
   const participantIds = new Set(tournament.participantIds)
   participantIds.add(match.playerAId)
@@ -304,13 +395,13 @@ export function addMatch(match: Omit<Match, 'id' | 'createdAt'>): AppData {
       : t,
   )
 
-  const next = {
+  saveData({
     ...data,
     tournaments: nextTournaments,
     matches: [nextMatch, ...data.matches],
-  }
-  saveData(next)
-  return next
+  })
+  tryAutoFinishTournament(match.tournamentId)
+  return { ok: true }
 }
 
 export function deleteMatch(matchId: string, requesterId: string): AppData {

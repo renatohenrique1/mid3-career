@@ -1,10 +1,11 @@
-import { computeRanking, normalizeFormat } from './ranking'
+import { computeRanking, normalizeFormat, normalizeStructure, shouldAutoFinishTournament, tournamentMatchDateError, tournamentPairLimitError } from './ranking'
 import type {
   AppData,
   BallBrand,
   Match,
   Tournament,
   TournamentFormat,
+  TournamentStructure,
   User,
 } from '../types'
 import { nameKey, normalizeName } from './auth'
@@ -25,6 +26,9 @@ type TournamentRow = {
   created_at: string
   status: 'active' | 'finished'
   format: TournamentFormat
+  structure: TournamentStructure | null
+  starts_on: string | null
+  ends_on: string | null
   winner_id: string | null
   finished_at: string | null
 }
@@ -58,6 +62,7 @@ function mapTournament(
   row: TournamentRow,
   participantIds: string[],
 ): Tournament {
+  const structure = normalizeStructure(row.structure)
   return {
     id: row.id,
     name: row.name,
@@ -66,6 +71,9 @@ function mapTournament(
     participantIds,
     status: row.status,
     format: normalizeFormat(row.format),
+    ...(structure ? { structure } : {}),
+    ...(row.starts_on ? { startsOn: row.starts_on } : {}),
+    ...(row.ends_on ? { endsOn: row.ends_on } : {}),
     winnerId: row.winner_id ?? undefined,
     finishedAt: row.finished_at ?? undefined,
   }
@@ -141,6 +149,7 @@ export const supabaseRepository: DataRepository = {
 
   async bootstrap() {
     const sb = getSupabase()
+    await autoFinishDueSupabaseTournaments()
     const { data: sessionData } = await sb.auth.getSession()
     const userId = sessionData.session?.user.id ?? null
     const data = await fetchAllData()
@@ -230,6 +239,30 @@ export const supabaseRepository: DataRepository = {
     }
     const format = normalizeFormat(input.format)
 
+    let structure: TournamentStructure | null = null
+    const startsOn = input.startsOn?.trim() || null
+    const endsOn = input.endsOn?.trim() || null
+
+    if (!startsOn || !endsOn) {
+      return { ok: false, error: 'Informe data de início e de fim.' }
+    }
+    if (endsOn < startsOn) {
+      return { ok: false, error: 'A data de fim deve ser após o início.' }
+    }
+
+    if (format === 'classic') {
+      const normalized = normalizeStructure(input.structure)
+      if (normalized !== 'round_robin' && normalized !== 'points_league') {
+        return {
+          ok: false,
+          error: 'Escolha a estrutura: todos contra todos ou liga por pontos.',
+        }
+      }
+      structure = normalized
+    } else {
+      structure = 'round_robin_double'
+    }
+
     const sb = getSupabase()
     const { data: row, error } = await sb
       .from('tournaments')
@@ -238,6 +271,9 @@ export const supabaseRepository: DataRepository = {
         created_by_id: input.createdById,
         status: 'active',
         format,
+        structure,
+        starts_on: startsOn,
+        ends_on: endsOn,
       })
       .select('*')
       .single()
@@ -287,7 +323,7 @@ export const supabaseRepository: DataRepository = {
     return { ok: true }
   },
 
-  async finishTournament(tournamentId, requesterId): Promise<TournamentResult> {
+  async finishTournament(tournamentId, requesterId, options): Promise<TournamentResult> {
     const sb = getSupabase()
     const data = await fetchAllData()
     const tournament = data.tournaments.find((t) => t.id === tournamentId)
@@ -295,7 +331,7 @@ export const supabaseRepository: DataRepository = {
     if (tournament.status === 'finished') {
       return { ok: false, error: 'Torneio já encerrado.' }
     }
-    if (tournament.createdById !== requesterId) {
+    if (!options?.auto && tournament.createdById !== requesterId) {
       return { ok: false, error: 'Só quem criou o torneio pode encerrar.' }
     }
 
@@ -343,6 +379,52 @@ export const supabaseRepository: DataRepository = {
 
   async addMatch(match): Promise<MutationOk> {
     const sb = getSupabase()
+
+    if (match.tournamentId) {
+      const { data: row, error: tError } = await sb
+        .from('tournaments')
+        .select('status, starts_on, ends_on, structure')
+        .eq('id', match.tournamentId)
+        .maybeSingle()
+
+      if (tError) return { ok: false, error: tError.message }
+      const windowError = tournamentMatchDateError(
+        row
+          ? {
+              status: row.status,
+              startsOn: row.starts_on ?? undefined,
+              endsOn: row.ends_on ?? undefined,
+            }
+          : null,
+        match.date,
+      )
+      if (windowError) return { ok: false, error: windowError }
+
+      const { data: existingRows, error: mError } = await sb
+        .from('matches')
+        .select('player_a_id, player_b_id, games_a, games_b')
+        .eq('tournament_id', match.tournamentId)
+
+      if (mError) return { ok: false, error: mError.message }
+
+      const existingMatches = (existingRows ?? []).map((r) => ({
+        playerAId: r.player_a_id as string,
+        playerBId: r.player_b_id as string,
+        gamesA: r.games_a as number,
+        gamesB: r.games_b as number,
+      })) as Match[]
+
+      const pairError = tournamentPairLimitError(
+        {
+          structure: normalizeStructure(row?.structure),
+        },
+        existingMatches,
+        match.playerAId,
+        match.playerBId,
+      )
+      if (pairError) return { ok: false, error: pairError }
+    }
+
     const { error } = await sb.from('matches').insert({
       tournament_id: match.tournamentId,
       match_date: match.date,
@@ -363,6 +445,7 @@ export const supabaseRepository: DataRepository = {
         { tournament_id: match.tournamentId, user_id: match.playerAId },
         { tournament_id: match.tournamentId, user_id: match.playerBId },
       ])
+      await tryAutoFinishSupabaseTournament(match.tournamentId)
     }
 
     return { ok: true }
@@ -381,6 +464,40 @@ export const supabaseRepository: DataRepository = {
   },
 
   async fetchAll() {
+    await autoFinishDueSupabaseTournaments()
     return fetchAllData()
   },
+}
+
+async function tryAutoFinishSupabaseTournament(tournamentId: string) {
+  const data = await fetchAllData()
+  const tournament = data.tournaments.find((t) => t.id === tournamentId)
+  if (!tournament || tournament.status === 'finished') return
+
+  const tournamentMatches = data.matches.filter(
+    (m) => m.tournamentId === tournamentId,
+  )
+  const participants = data.users.filter((u) =>
+    tournament.participantIds.includes(u.id),
+  )
+
+  if (
+    !shouldAutoFinishTournament(tournament, participants, tournamentMatches)
+  ) {
+    return
+  }
+
+  await supabaseRepository.finishTournament(
+    tournamentId,
+    tournament.createdById,
+    { auto: true },
+  )
+}
+
+async function autoFinishDueSupabaseTournaments() {
+  const data = await fetchAllData()
+  for (const tournament of data.tournaments) {
+    if (tournament.status !== 'active') continue
+    await tryAutoFinishSupabaseTournament(tournament.id)
+  }
 }

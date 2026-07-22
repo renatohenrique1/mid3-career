@@ -18,6 +18,8 @@ O app funciona em dois modos:
 2. Cole o conteúdo de [`supabase/schema.sql`](./supabase/schema.sql)  
 3. Run  
 
+Se o projeto **já existia**, rode também [`supabase/migration_classic_structure.sql`](./supabase/migration_classic_structure.sql) (colunas `structure`, `starts_on`, `ends_on` no clássico).
+
 ## 3. Auth (nome + senha)
 
 1. **Authentication** → **Providers** → **Email**  

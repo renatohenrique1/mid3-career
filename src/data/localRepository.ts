@@ -7,6 +7,7 @@ import type {
 } from './repository'
 import {
   addMatch,
+  autoFinishDueTournaments,
   createTournament,
   deleteMatch,
   finishTournament,
@@ -23,6 +24,7 @@ export const localRepository: DataRepository = {
   mode: 'local',
 
   async bootstrap() {
+    autoFinishDueTournaments()
     const data = loadData()
     const session = loadSession()
     return { data, userId: session?.userId ?? null }
@@ -48,13 +50,12 @@ export const localRepository: DataRepository = {
     return joinTournament(tournamentId, userId)
   },
 
-  async finishTournament(tournamentId, requesterId) {
-    return finishTournament(tournamentId, requesterId)
+  async finishTournament(tournamentId, requesterId, options) {
+    return finishTournament(tournamentId, requesterId, options)
   },
 
   async addMatch(match) {
-    addMatch(match)
-    return { ok: true }
+    return addMatch(match)
   },
 
   async deleteMatch(matchId, requesterId) {
@@ -63,6 +64,7 @@ export const localRepository: DataRepository = {
   },
 
   async fetchAll(): Promise<AppData> {
+    autoFinishDueTournaments()
     return loadData()
   },
 }

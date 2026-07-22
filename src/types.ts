@@ -27,6 +27,12 @@ export type TournamentFormat =
   | 'bh'
   | 'fifteen_forty'
 
+/** Estrutura da competição. */
+export type TournamentStructure =
+  | 'round_robin'
+  | 'points_league'
+  | 'round_robin_double'
+
 export interface Tournament {
   id: TournamentId
   name: string
@@ -36,6 +42,15 @@ export interface Tournament {
   status: TournamentStatus
   /** Regra do torneio (legado sem campo = classic) */
   format: TournamentFormat
+  /**
+   * classic: round_robin | points_league
+   * outros formatos: round_robin_double (2 jogos entre cada par)
+   */
+  structure?: TournamentStructure
+  /** YYYY-MM-DD */
+  startsOn?: string
+  /** YYYY-MM-DD */
+  endsOn?: string
   winnerId?: UserId
   finishedAt?: string
 }

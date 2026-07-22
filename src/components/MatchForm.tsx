@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BALL_OPTIONS,
-  CLASSIC_QUICK_SCORES,
+  defaultScoreForFormat,
   formatBlurb,
   formatLabel,
   isValidMatchScore,
+  localDateString,
   normalizeFormat,
   pointsForWin,
+  quickScoresForFormat,
   rankingHint,
+  scoreErrorMessage,
+  scoreMaxForFormat,
   scoreUnitLabel,
   surfaceLabel,
-  TB_QUICK_SCORES,
+  tournamentMatchDateError,
 } from '../data/ranking'
 import type {
   BallBrand,
@@ -23,6 +27,8 @@ import type {
 interface MatchFormProps {
   tournamentId?: string | null
   tournamentName?: string
+  startsOn?: string
+  endsOn?: string
   format?: TournamentFormat
   users: User[]
   currentUser: User
@@ -37,6 +43,8 @@ function userById(users: User[], id: string) {
 export function MatchForm({
   tournamentId = null,
   tournamentName,
+  startsOn,
+  endsOn,
   format = 'classic',
   users,
   currentUser,
@@ -44,23 +52,31 @@ export function MatchForm({
   onClose,
 }: MatchFormProps) {
   const matchFormat = normalizeFormat(format)
-  const isTb = matchFormat === 'tb'
   const isTournament = Boolean(tournamentId)
-  const today = new Date().toISOString().slice(0, 10)
-  const quickScores = isTb ? TB_QUICK_SCORES : CLASSIC_QUICK_SCORES
-  const scoreMax = isTb ? 30 : 7
+  const today = localDateString()
+  const dateMin = startsOn || undefined
+  const dateMax = endsOn || undefined
+  const defaultDate =
+    dateMin && today < dateMin
+      ? dateMin
+      : dateMax && today > dateMax
+        ? dateMax
+        : today
+  const quickScores = quickScoresForFormat(matchFormat)
+  const scoreMax = scoreMaxForFormat(matchFormat)
+  const [defaultA, defaultB] = defaultScoreForFormat(matchFormat)
   const others = useMemo(
     () => users.filter((u) => u.id !== currentUser.id),
     [users, currentUser.id],
   )
   const initialized = useRef(false)
 
-  const [date, setDate] = useState(today)
+  const [date, setDate] = useState(defaultDate)
   const [surface, setSurface] = useState<Surface>('hard')
   const [playerAId, setPlayerAId] = useState(currentUser.id)
   const [playerBId, setPlayerBId] = useState(others[0]?.id ?? '')
-  const [gamesA, setGamesA] = useState(isTb ? 10 : 6)
-  const [gamesB, setGamesB] = useState(isTb ? 8 : 4)
+  const [gamesA, setGamesA] = useState(defaultA)
+  const [gamesB, setGamesB] = useState(defaultB)
   const [durationMinutes, setDurationMinutes] = useState('')
   const [ball, setBall] = useState<BallBrand | ''>('')
   const [error, setError] = useState('')
@@ -127,9 +143,10 @@ export function MatchForm({
   }
 
   function resetForNext() {
-    setGamesA(isTb ? 10 : 6)
-    setGamesB(isTb ? 8 : 4)
-    setDate(new Date().toISOString().slice(0, 10))
+    const [nextA, nextB] = defaultScoreForFormat(matchFormat)
+    setGamesA(nextA)
+    setGamesB(nextB)
+    setDate(defaultDate)
     setDurationMinutes('')
     setBall('')
     setSuccess(null)
@@ -150,12 +167,19 @@ export function MatchForm({
       return
     }
     if (!isValidMatchScore(matchFormat, gamesA, gamesB)) {
-      setError(
-        isTb
-          ? 'Placar inválido. Tie-break até 10, com 2 de diferença.'
-          : 'Placar inválido. Use 6-0 a 6-4, 7-5 ou 7-6.',
-      )
+      setError(scoreErrorMessage(matchFormat))
       return
+    }
+
+    if (isTournament && (startsOn || endsOn)) {
+      const windowError = tournamentMatchDateError(
+        { status: 'active', startsOn, endsOn },
+        date,
+      )
+      if (windowError) {
+        setError(windowError)
+        return
+      }
     }
 
     let parsedDuration: number | null = null
@@ -302,7 +326,7 @@ export function MatchForm({
                   type="button"
                   className="stepper"
                   onClick={() => bump('a', -1)}
-                  aria-label="Diminuir games A"
+                  aria-label={`Diminuir ${scoreUnitLabel(matchFormat)} A`}
                 >
                   −
                 </button>
@@ -311,7 +335,7 @@ export function MatchForm({
                   type="button"
                   className="stepper"
                   onClick={() => bump('a', 1)}
-                  aria-label="Aumentar games A"
+                  aria-label={`Aumentar ${scoreUnitLabel(matchFormat)} A`}
                 >
                   +
                 </button>
@@ -353,7 +377,7 @@ export function MatchForm({
                   type="button"
                   className="stepper"
                   onClick={() => bump('b', -1)}
-                  aria-label="Diminuir games B"
+                  aria-label={`Diminuir ${scoreUnitLabel(matchFormat)} B`}
                 >
                   −
                 </button>
@@ -362,7 +386,7 @@ export function MatchForm({
                   type="button"
                   className="stepper"
                   onClick={() => bump('b', 1)}
-                  aria-label="Aumentar games B"
+                  aria-label={`Aumentar ${scoreUnitLabel(matchFormat)} B`}
                 >
                   +
                 </button>
@@ -384,6 +408,8 @@ export function MatchForm({
               <input
                 type="date"
                 value={date}
+                min={dateMin}
+                max={dateMax}
                 onChange={(e) => setDate(e.target.value)}
                 required
               />

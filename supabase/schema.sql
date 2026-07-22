@@ -25,8 +25,20 @@ create table if not exists public.tournaments (
     check (status in ('active', 'finished')),
   format text not null default 'classic'
     check (format in ('classic', 'tb', 'fh', 'bh', 'fifteen_forty')),
+  structure text
+    check (
+      structure is null
+      or structure in ('round_robin', 'points_league', 'round_robin_double')
+    ),
+  starts_on date,
+  ends_on date,
   winner_id uuid references public.profiles (id),
-  finished_at timestamptz
+  finished_at timestamptz,
+  check (
+    starts_on is null
+    or ends_on is null
+    or ends_on >= starts_on
+  )
 );
 
 create index if not exists tournaments_created_at_idx
