@@ -11,11 +11,21 @@ import {
   structureLabel,
   tournamentMatchDateError,
 } from '../data/ranking'
-import type { AppArea, AppData, Match, Tournament, User } from '../types'
+import type {
+  AppArea,
+  AppData,
+  Match,
+  MatchEditPayload,
+  ProfileUpdateInput,
+  Tournament,
+  User,
+} from '../types'
 import { CareerRanking } from './CareerRanking'
 import { Feed } from './Feed'
 import { MatchForm } from './MatchForm'
 import { MatchHistory } from './MatchHistory'
+import { PlayerAvatar } from './PlayerAvatar'
+import { ProfilePage } from './ProfilePage'
 import { Ranking } from './Ranking'
 import { Stats } from './Stats'
 import { TournamentFixtures } from './TournamentFixtures'
@@ -58,6 +68,20 @@ interface AppShellProps {
       >
   onRecordMatch: (match: Omit<Match, 'id' | 'createdAt'>) => void | Promise<void>
   onDeleteMatch: (matchId: string) => void | Promise<void>
+  onUpdateProfile: (
+    input: ProfileUpdateInput,
+  ) => Promise<{ ok: true; user?: User } | { ok: false; error: string }>
+  onRequestMatchEdit: (
+    matchId: string,
+    payload: MatchEditPayload,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
+  onWithdrawMatchEdit: (
+    requestId: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
+  onResolveMatchEdit: (
+    requestId: string,
+    decision: 'approved' | 'rejected',
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
 export function AppShell({
@@ -69,8 +93,12 @@ export function AppShell({
   onFinishTournament,
   onRecordMatch,
   onDeleteMatch,
+  onUpdateProfile,
+  onRequestMatchEdit,
+  onWithdrawMatchEdit,
+  onResolveMatchEdit,
 }: AppShellProps) {
-  const { users, tournaments, matches } = data
+  const { users, tournaments, matches, matchEditRequests } = data
   const [area, setArea] = useState<AppArea>('feed')
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(
     null,
@@ -204,7 +232,15 @@ export function AppShell({
             <span className="brand-sub">Career</span>
           </div>
           <div className="topbar-user">
-            <span className="user-name">{currentUser.name}</span>
+            <button
+              type="button"
+              className="topbar-profile"
+              onClick={() => switchArea('profile')}
+              title="Meu perfil"
+            >
+              <PlayerAvatar user={currentUser} size="sm" />
+              <span className="user-name">{currentUser.name}</span>
+            </button>
             <button type="button" className="link-btn" onClick={onLogout}>
               Sair
             </button>
@@ -212,7 +248,7 @@ export function AppShell({
         </header>
 
         {!activeTournament && !registerOpen ? (
-          <nav className="area-tabs area-tabs-5 frame" aria-label="Áreas">
+          <nav className="area-tabs area-tabs-6 frame" aria-label="Áreas">
             <button
               type="button"
               className={area === 'feed' ? 'active' : ''}
@@ -252,6 +288,13 @@ export function AppShell({
             >
               Sets
               <span>{casualMatches.length}</span>
+            </button>
+            <button
+              type="button"
+              className={area === 'profile' ? 'active' : ''}
+              onClick={() => switchArea('profile')}
+            >
+              Perfil
             </button>
           </nav>
         ) : null}
@@ -426,7 +469,12 @@ export function AppShell({
               matches={tournamentMatches}
               users={users}
               currentUserId={currentUser.id}
+              editRequests={matchEditRequests}
+              scoreFormat={tournamentFormat}
               onDelete={onDeleteMatch}
+              onRequestEdit={onRequestMatchEdit}
+              onWithdrawEdit={onWithdrawMatchEdit}
+              onResolveEdit={onResolveMatchEdit}
             />
           </>
         ) : null}
@@ -460,9 +508,22 @@ export function AppShell({
               matches={casualMatches}
               users={users}
               currentUserId={currentUser.id}
+              editRequests={matchEditRequests}
+              scoreFormat="classic"
               onDelete={onDeleteMatch}
+              onRequestEdit={onRequestMatchEdit}
+              onWithdrawEdit={onWithdrawMatchEdit}
+              onResolveEdit={onResolveMatchEdit}
             />
           </>
+        ) : null}
+
+        {!registerOpen && area === 'profile' && !activeTournament ? (
+          <ProfilePage
+            data={data}
+            currentUser={currentUser}
+            onUpdateProfile={onUpdateProfile}
+          />
         ) : null}
       </main>
 

@@ -1,11 +1,20 @@
 import type {
   AppData,
   Match,
+  MatchEditPayload,
+  MatchEditRequest,
+  ProfileUpdateInput,
   Session,
   Tournament,
   User,
 } from '../types'
 import { hashPassword, nameKey, normalizeName } from './auth'
+import {
+  isValidNickname,
+  nameChangesLeft,
+  nicknameCooldownMs,
+  normalizeNickname,
+} from './profile'
 import {
   computeRanking,
   shouldAutoFinishTournament,
@@ -18,7 +27,12 @@ const SESSION_KEY = 'mid3-career-session'
 /** One-shot wipe: remove dados legados na próxima abertura do app. */
 const WIPE_KEY = 'mid3-career-wipe-2026-07-21'
 
-const EMPTY_DATA: AppData = { users: [], tournaments: [], matches: [] }
+const EMPTY_DATA: AppData = {
+  users: [],
+  tournaments: [],
+  matches: [],
+  matchEditRequests: [],
+}
 
 function wipeLegacyIfNeeded(): void {
   if (typeof localStorage === 'undefined') return
@@ -55,17 +69,38 @@ function migrate(raw: unknown): AppData {
       }))
     : []
 
+  const users = (data.users as User[]).map((u) => ({
+    ...u,
+    nickname: u.nickname ?? null,
+    nameChangesUsed: u.nameChangesUsed ?? 0,
+    nameChangesMax: u.nameChangesMax ?? 3,
+    nicknameChangedAt: u.nicknameChangedAt ?? null,
+    avatarId: u.avatarId ?? 'initial',
+    heightCm: u.heightCm ?? null,
+    age: u.age ?? null,
+    backhand: u.backhand ?? null,
+    rackets: u.rackets ?? [],
+    primaryRacket: u.primaryRacket ?? null,
+  }))
+
   const matches = Array.isArray(data.matches)
     ? (data.matches as Match[]).map((m) => ({
         ...m,
         tournamentId: m.tournamentId ?? null,
+        racketA: m.racketA ?? null,
+        racketB: m.racketB ?? null,
       }))
     : []
 
+  const matchEditRequests = Array.isArray(data.matchEditRequests)
+    ? (data.matchEditRequests as MatchEditRequest[])
+    : []
+
   return {
-    users: data.users as User[],
+    users,
     tournaments,
     matches,
+    matchEditRequests,
   }
 }
 
@@ -108,14 +143,23 @@ export function saveSession(session: Session | null): void {
 export async function registerUser(input: {
   name: string
   password: string
+  nickname?: string
 }): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
   const name = normalizeName(input.name)
   const password = input.password
   const key = nameKey(name)
+  const rawNickname = input.nickname?.trim()
+  const nickname = rawNickname ? normalizeNickname(rawNickname) : null
 
   if (name.length < 2) return { ok: false, error: 'Nome muito curto.' }
   if (password.length < 4) {
     return { ok: false, error: 'Senha precisa ter ao menos 4 caracteres.' }
+  }
+  if (nickname && !isValidNickname(nickname)) {
+    return {
+      ok: false,
+      error: 'Apelido inválido. Use 3–20 letras minúsculas, números ou _.',
+    }
   }
 
   const data = loadData()
@@ -126,13 +170,30 @@ export async function registerUser(input: {
   ) {
     return { ok: false, error: 'Já existe uma conta com esse nome.' }
   }
+  if (
+    nickname &&
+    data.users.some((u) => u.nickname?.toLowerCase() === nickname)
+  ) {
+    return { ok: false, error: 'Esse apelido já está em uso.' }
+  }
 
+  const now = new Date().toISOString()
   const user: User = {
     id: crypto.randomUUID(),
     name,
     username: key,
+    nickname,
     passwordHash: await hashPassword(password, key),
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    nameChangesUsed: 0,
+    nameChangesMax: 2,
+    nicknameChangedAt: nickname ? now : null,
+    avatarId: 'initial',
+    heightCm: null,
+    age: null,
+    backhand: null,
+    rackets: [],
+    primaryRacket: null,
   }
 
   saveData({ ...data, users: [...data.users, user] })
@@ -144,10 +205,15 @@ export async function loginUser(input: {
   name: string
   password: string
 }): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
-  const key = nameKey(input.name)
+  const identifier = input.name
+  const key = nameKey(identifier)
+  const nick = normalizeNickname(identifier)
   const data = loadData()
   const user = data.users.find(
-    (u) => nameKey(u.name) === key || u.username.toLowerCase() === key,
+    (u) =>
+      nameKey(u.name) === key ||
+      u.username.toLowerCase() === key ||
+      (u.nickname && u.nickname.toLowerCase() === nick),
   )
 
   if (!user) return { ok: false, error: 'Nome ou senha inválidos.' }
@@ -172,6 +238,186 @@ export async function loginUser(input: {
 
 export function logoutUser(): void {
   saveSession(null)
+}
+
+export function updateProfile(
+  userId: string,
+  input: ProfileUpdateInput,
+): { ok: true; user: User } | { ok: false; error: string } {
+  const data = loadData()
+  const user = data.users.find((u) => u.id === userId)
+  if (!user) return { ok: false, error: 'Usuário não encontrado.' }
+
+  const next: User = { ...user }
+
+  if (input.name !== undefined) {
+    const name = normalizeName(input.name)
+    if (name.length < 2) return { ok: false, error: 'Nome muito curto.' }
+    if (name !== user.name) {
+      if (nameChangesLeft(user) <= 0) {
+        return {
+          ok: false,
+          error: 'Você já usou todas as trocas de nome disponíveis.',
+        }
+      }
+      next.name = name
+      next.nameChangesUsed = user.nameChangesUsed + 1
+    }
+  }
+
+  if (input.nickname !== undefined) {
+    const nickname = normalizeNickname(input.nickname)
+    if (!isValidNickname(nickname)) {
+      return {
+        ok: false,
+        error: 'Apelido inválido. Use 3–20 letras minúsculas, números ou _.',
+      }
+    }
+    if (nickname !== user.nickname) {
+      const isFirstSetup = !user.nickname
+      if (!isFirstSetup && nicknameCooldownMs(user) > 0) {
+        return {
+          ok: false,
+          error: 'Aguarde o prazo para trocar de apelido novamente.',
+        }
+      }
+      const dupe = data.users.some(
+        (u) =>
+          u.id !== userId && u.nickname?.toLowerCase() === nickname,
+      )
+      if (dupe) return { ok: false, error: 'Esse apelido já está em uso.' }
+      next.nickname = nickname
+      next.nicknameChangedAt = new Date().toISOString()
+    }
+  }
+
+  if (input.avatarId !== undefined) next.avatarId = input.avatarId
+  if (input.heightCm !== undefined) next.heightCm = input.heightCm
+  if (input.age !== undefined) next.age = input.age
+  if (input.backhand !== undefined) next.backhand = input.backhand
+  if (input.rackets !== undefined) next.rackets = input.rackets
+  if (input.primaryRacket !== undefined) {
+    next.primaryRacket = input.primaryRacket
+  }
+
+  const rackets = next.rackets ?? []
+  if (next.primaryRacket && !rackets.includes(next.primaryRacket)) {
+    return {
+      ok: false,
+      error: 'A raquete principal precisa estar na sua lista de raquetes.',
+    }
+  }
+
+  const nextUsers = data.users.map((u) => (u.id === userId ? next : u))
+  saveData({ ...data, users: nextUsers })
+  return { ok: true, user: next }
+}
+
+export function requestMatchEdit(
+  matchId: string,
+  requesterId: string,
+  payload: MatchEditPayload,
+): { ok: true; request: MatchEditRequest } | { ok: false; error: string } {
+  const data = loadData()
+  const match = data.matches.find((m) => m.id === matchId)
+  if (!match) return { ok: false, error: 'Set não encontrado.' }
+  if (match.playerAId !== requesterId && match.playerBId !== requesterId) {
+    return { ok: false, error: 'Você não participou deste set.' }
+  }
+
+  const hasPending = data.matchEditRequests.some(
+    (r) => r.matchId === matchId && r.status === 'pending',
+  )
+  if (hasPending) {
+    return {
+      ok: false,
+      error: 'Já existe uma solicitação de edição pendente para este set.',
+    }
+  }
+
+  const request: MatchEditRequest = {
+    id: crypto.randomUUID(),
+    matchId,
+    requestedById: requesterId,
+    status: 'pending',
+    payload,
+    createdAt: new Date().toISOString(),
+  }
+
+  saveData({
+    ...data,
+    matchEditRequests: [request, ...data.matchEditRequests],
+  })
+  return { ok: true, request }
+}
+
+export function withdrawMatchEdit(
+  requestId: string,
+  requesterId: string,
+): { ok: true } | { ok: false; error: string } {
+  const data = loadData()
+  const request = data.matchEditRequests.find((r) => r.id === requestId)
+  if (!request) return { ok: false, error: 'Solicitação não encontrada.' }
+  if (request.requestedById !== requesterId) {
+    return { ok: false, error: 'Só quem solicitou pode retirar o pedido.' }
+  }
+  if (request.status !== 'pending') {
+    return { ok: false, error: 'Esta solicitação já foi resolvida.' }
+  }
+
+  const nextRequests = data.matchEditRequests.map((r) =>
+    r.id === requestId ? { ...r, status: 'withdrawn' as const } : r,
+  )
+  saveData({ ...data, matchEditRequests: nextRequests })
+  return { ok: true }
+}
+
+export function resolveMatchEdit(
+  requestId: string,
+  resolverId: string,
+  decision: 'approved' | 'rejected',
+): { ok: true } | { ok: false; error: string } {
+  const data = loadData()
+  const request = data.matchEditRequests.find((r) => r.id === requestId)
+  if (!request) return { ok: false, error: 'Solicitação não encontrada.' }
+  if (request.status !== 'pending') {
+    return { ok: false, error: 'Esta solicitação já foi resolvida.' }
+  }
+
+  const match = data.matches.find((m) => m.id === request.matchId)
+  if (!match) return { ok: false, error: 'Set não encontrado.' }
+
+  const otherPlayerId =
+    match.playerAId === request.requestedById
+      ? match.playerBId
+      : match.playerAId
+  if (resolverId !== otherPlayerId) {
+    return {
+      ok: false,
+      error: 'Só o outro participante do set pode responder a este pedido.',
+    }
+  }
+
+  const resolvedAt = new Date().toISOString()
+  const nextRequests = data.matchEditRequests.map((r) =>
+    r.id === requestId
+      ? { ...r, status: decision, resolvedAt, resolvedById: resolverId }
+      : r,
+  )
+
+  const nextMatches =
+    decision === 'approved'
+      ? data.matches.map((m) =>
+          m.id === request.matchId ? { ...m, ...request.payload } : m,
+        )
+      : data.matches
+
+  saveData({
+    ...data,
+    matchEditRequests: nextRequests,
+    matches: nextMatches,
+  })
+  return { ok: true }
 }
 
 export function createTournament(input: {
@@ -356,6 +602,8 @@ export function addMatch(
   if (!match.tournamentId) {
     const nextMatch: Match = {
       ...match,
+      racketA: match.racketA ?? null,
+      racketB: match.racketB ?? null,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     }
@@ -381,6 +629,8 @@ export function addMatch(
 
   const nextMatch: Match = {
     ...match,
+    racketA: match.racketA ?? null,
+    racketB: match.racketB ?? null,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
   }

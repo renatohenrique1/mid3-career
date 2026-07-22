@@ -6,15 +6,37 @@ export type BallBrand =
   | 'wilson_rg'
   | 'wilson_us_open'
 
+export type RacketModel =
+  | 'wilson_blade_98'
+  | 'yonex_ezone_98'
+  | 'yonex_vcore_95'
+
+export type AvatarId = 'ball' | 'racket' | 'crossed' | 'initial'
+
+export type BackhandType = 'one_handed' | 'two_handed'
+
 export type UserId = string
 export type TournamentId = string
 
 export interface User {
   id: UserId
+  /** Nome de exibição */
   name: string
+  /** Login imutável (chave do e-mail sintético) */
   username: string
+  /** Apelido único (@) — obrigatório após onboarding */
+  nickname: string | null
   passwordHash: string
   createdAt: string
+  nameChangesUsed: number
+  nameChangesMax: number
+  nicknameChangedAt: string | null
+  avatarId: AvatarId
+  heightCm: number | null
+  age: number | null
+  backhand: BackhandType | null
+  rackets: RacketModel[]
+  primaryRacket: RacketModel | null
 }
 
 export type TournamentStatus = 'active' | 'finished'
@@ -69,8 +91,41 @@ export interface Match {
   durationMinutes?: number | null
   /** bola usada (opcional) */
   ball?: BallBrand | null
+  racketA?: RacketModel | null
+  racketB?: RacketModel | null
   createdAt: string
   recordedById: UserId
+}
+
+export type MatchEditStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'withdrawn'
+
+/** Campos editáveis de um set (pedido de alteração). */
+export type MatchEditPayload = {
+  date: string
+  surface: Surface
+  playerAId: UserId
+  playerBId: UserId
+  gamesA: number
+  gamesB: number
+  durationMinutes?: number | null
+  ball?: BallBrand | null
+  racketA?: RacketModel | null
+  racketB?: RacketModel | null
+}
+
+export interface MatchEditRequest {
+  id: string
+  matchId: string
+  requestedById: UserId
+  status: MatchEditStatus
+  payload: MatchEditPayload
+  createdAt: string
+  resolvedAt?: string
+  resolvedById?: UserId
 }
 
 export interface PlayerStats {
@@ -89,13 +144,20 @@ export interface AppData {
   users: User[]
   tournaments: Tournament[]
   matches: Match[]
+  matchEditRequests: MatchEditRequest[]
 }
 
 export interface Session {
   userId: UserId
 }
 
-export type AppArea = 'feed' | 'ranking' | 'stats' | 'tournaments' | 'sets'
+export type AppArea =
+  | 'feed'
+  | 'ranking'
+  | 'stats'
+  | 'tournaments'
+  | 'sets'
+  | 'profile'
 
 export interface CareerStats {
   playerId: UserId
@@ -142,3 +204,14 @@ export type FeedItem =
       tournament: Tournament
       winnerId: UserId
     }
+
+export type ProfileUpdateInput = {
+  name?: string
+  nickname?: string
+  avatarId?: AvatarId
+  heightCm?: number | null
+  age?: number | null
+  backhand?: BackhandType | null
+  rackets?: RacketModel[]
+  primaryRacket?: RacketModel | null
+}

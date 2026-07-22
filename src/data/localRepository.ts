@@ -2,7 +2,9 @@ import type { AppData, Match, TournamentFormat } from '../types'
 import type {
   AuthResult,
   DataRepository,
+  MatchEditResult,
   MutationOk,
+  ProfileResult,
   TournamentResult,
 } from './repository'
 import {
@@ -17,7 +19,11 @@ import {
   loginUser,
   logoutUser,
   registerUser,
+  requestMatchEdit,
+  resolveMatchEdit,
   saveSession,
+  updateProfile,
+  withdrawMatchEdit,
 } from './storage'
 
 export const localRepository: DataRepository = {
@@ -42,6 +48,10 @@ export const localRepository: DataRepository = {
     logoutUser()
   },
 
+  async updateProfile(userId, input): Promise<ProfileResult> {
+    return updateProfile(userId, input)
+  },
+
   async createTournament(input) {
     return createTournament(input)
   },
@@ -63,6 +73,18 @@ export const localRepository: DataRepository = {
     return { ok: true }
   },
 
+  async requestMatchEdit(matchId, requesterId, payload): Promise<MatchEditResult> {
+    return requestMatchEdit(matchId, requesterId, payload)
+  },
+
+  async withdrawMatchEdit(requestId, requesterId) {
+    return withdrawMatchEdit(requestId, requesterId)
+  },
+
+  async resolveMatchEdit(requestId, resolverId, decision) {
+    return resolveMatchEdit(requestId, resolverId, decision)
+  },
+
   async fetchAll(): Promise<AppData> {
     autoFinishDueTournaments()
     return loadData()
@@ -74,4 +96,11 @@ export function ensureLocalSession(userId: string | null) {
   saveSession(userId ? { userId } : null)
 }
 
-export type { AuthResult, MutationOk, TournamentResult, TournamentFormat, Match }
+export type {
+  AuthResult,
+  MutationOk,
+  ProfileResult,
+  TournamentResult,
+  TournamentFormat,
+  Match,
+}

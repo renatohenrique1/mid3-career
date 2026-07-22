@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import type { AppData, Match, Session, Tournament, User } from '../types'
+import type {
+  AppData,
+  Match,
+  MatchEditPayload,
+  ProfileUpdateInput,
+  Session,
+  Tournament,
+  User,
+} from '../types'
 import { getBackendMode, getRepository } from './backend'
 
-const EMPTY: AppData = { users: [], tournaments: [], matches: [] }
+const EMPTY: AppData = {
+  users: [],
+  tournaments: [],
+  matches: [],
+  matchEditRequests: [],
+}
 
 let dataSnapshot: AppData = EMPTY
 let sessionSnapshot: Session | null = null
@@ -82,7 +95,7 @@ export function useAppData() {
     data.users.find((u) => u.id === session?.userId) ?? null
 
   const register = useCallback(
-    async (input: { name: string; password: string }) => {
+    async (input: { name: string; password: string; nickname?: string }) => {
       const repo = getRepository()
       const result = await repo.register(input)
       if (result.ok) {
@@ -189,6 +202,65 @@ export function useAppData() {
     await refreshFromRepo()
   }, [])
 
+  const updateProfile = useCallback(
+    async (input: ProfileUpdateInput) => {
+      if (!sessionSnapshot?.userId) {
+        return { ok: false as const, error: 'Faça login para editar o perfil.' }
+      }
+      const result = await getRepository().updateProfile(
+        sessionSnapshot.userId,
+        input,
+      )
+      if (result.ok) await refreshFromRepo()
+      return result
+    },
+    [],
+  )
+
+  const requestMatchEdit = useCallback(
+    async (matchId: string, payload: MatchEditPayload) => {
+      if (!sessionSnapshot?.userId) {
+        return { ok: false as const, error: 'Faça login para solicitar edição.' }
+      }
+      const result = await getRepository().requestMatchEdit(
+        matchId,
+        sessionSnapshot.userId,
+        payload,
+      )
+      if (result.ok) await refreshFromRepo()
+      return result
+    },
+    [],
+  )
+
+  const withdrawMatchEdit = useCallback(async (requestId: string) => {
+    if (!sessionSnapshot?.userId) {
+      return { ok: false as const, error: 'Faça login para retirar o pedido.' }
+    }
+    const result = await getRepository().withdrawMatchEdit(
+      requestId,
+      sessionSnapshot.userId,
+    )
+    if (result.ok) await refreshFromRepo()
+    return result
+  }, [])
+
+  const resolveMatchEdit = useCallback(
+    async (requestId: string, decision: 'approved' | 'rejected') => {
+      if (!sessionSnapshot?.userId) {
+        return { ok: false as const, error: 'Faça login para responder o pedido.' }
+      }
+      const result = await getRepository().resolveMatchEdit(
+        requestId,
+        sessionSnapshot.userId,
+        decision,
+      )
+      if (result.ok) await refreshFromRepo()
+      return result
+    },
+    [],
+  )
+
   return {
     data: data as AppData,
     session: session as Session | null,
@@ -203,5 +275,9 @@ export function useAppData() {
     finishTournament: finish,
     recordMatch,
     removeMatch,
+    updateProfile,
+    requestMatchEdit,
+    withdrawMatchEdit,
+    resolveMatchEdit,
   }
 }

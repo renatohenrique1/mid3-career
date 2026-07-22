@@ -16,9 +16,11 @@ import {
   surfaceLabel,
   tournamentMatchDateError,
 } from '../data/ranking'
+import { RACKET_MODELS, racketLabel } from '../data/profile'
 import type {
   BallBrand,
   Match,
+  RacketModel,
   Surface,
   TournamentFormat,
   User,
@@ -79,6 +81,12 @@ export function MatchForm({
   const [gamesB, setGamesB] = useState(defaultB)
   const [durationMinutes, setDurationMinutes] = useState('')
   const [ball, setBall] = useState<BallBrand | ''>('')
+  const [racketA, setRacketA] = useState<RacketModel | ''>(
+    () => userById(users, currentUser.id)?.primaryRacket ?? '',
+  )
+  const [racketB, setRacketB] = useState<RacketModel | ''>(
+    () => others[0]?.primaryRacket ?? '',
+  )
   const [error, setError] = useState('')
   const [success, setSuccess] = useState<{
     winnerName: string
@@ -86,6 +94,13 @@ export function MatchForm({
     score: string
     points: number
   } | null>(null)
+
+  useEffect(() => {
+    const a = userById(users, playerAId)
+    const b = userById(users, playerBId)
+    setRacketA(a?.primaryRacket ?? '')
+    setRacketB(b?.primaryRacket ?? '')
+  }, [playerAId, playerBId, users])
 
   useEffect(() => {
     if (initialized.current) return
@@ -212,6 +227,8 @@ export function MatchForm({
       gamesB,
       durationMinutes: parsedDuration,
       ball: ball || null,
+      racketA: racketA || null,
+      racketB: racketB || null,
       recordedById: currentUser.id,
     })
 
@@ -434,6 +451,41 @@ export function MatchForm({
                 </button>
               </div>
             </fieldset>
+          </div>
+
+          <div className="form-row">
+            <label>
+              <span>Raquete · {playerA?.name ?? 'A'}</span>
+              <select
+                value={racketA}
+                onChange={(e) =>
+                  setRacketA((e.target.value as RacketModel) || '')
+                }
+              >
+                <option value="">—</option>
+                {RACKET_MODELS.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Raquete · {playerB?.name ?? 'B'}</span>
+              <select
+                value={racketB}
+                onChange={(e) =>
+                  setRacketB((e.target.value as RacketModel) || '')
+                }
+              >
+                <option value="">—</option>
+                {RACKET_MODELS.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div className="quick-scores">

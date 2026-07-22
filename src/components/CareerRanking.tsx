@@ -94,7 +94,41 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
         </div>
       ) : (
         <div className="panel table-panel">
-          <div className="table-scroll">
+          <ul className="career-mobile-list">
+            {stats.map((player, index) => (
+              <li key={player.playerId}>
+                <button
+                  type="button"
+                  className={`career-mobile-row${
+                    selected?.playerId === player.playerId ? ' is-selected' : ''
+                  }${player.playerId === currentUser.id ? ' is-you' : ''}`}
+                  onClick={() => setSelectedId(player.playerId)}
+                >
+                  <span className="career-mobile-rank">{index + 1}</span>
+                  <span className="career-avatar sm" aria-hidden>
+                    {initials(player.name)}
+                  </span>
+                  <span className="career-mobile-main">
+                    <strong>
+                      {player.name}
+                      {player.playerId === currentUser.id ? (
+                        <span className="you-tag"> você</span>
+                      ) : null}
+                    </strong>
+                    <span>
+                      {player.setWins}V · {player.setLosses}D ·{' '}
+                      {player.titles} tít. · {formatDiff(player.gameDiff)}
+                    </span>
+                  </span>
+                  <span className="career-mobile-pct">
+                    {Math.round(player.winRate * 100)}%
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="table-scroll career-table-desktop">
             <table className="career-table">
               <thead>
                 <tr>
@@ -103,7 +137,7 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
                   <th>V</th>
                   <th>D</th>
                   <th>Sets</th>
-                  <th>Títulos</th>
+                  <th>Tít.</th>
                   <th>Saldo</th>
                   <th>%</th>
                   <th>Games</th>
@@ -154,7 +188,7 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
               </tbody>
             </table>
           </div>
-          <p className="table-hint">Toque numa linha para ver o H2H.</p>
+          <p className="table-hint">Toque num jogador para ver o H2H.</p>
         </div>
       )}
 

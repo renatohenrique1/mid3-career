@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { isValidNickname, normalizeNickname } from '../data/profile'
 
 type AuthMode = 'login' | 'register'
 
@@ -10,12 +11,14 @@ interface AuthScreenProps {
   onRegister: (input: {
     name: string
     password: string
+    nickname?: string
   }) => Promise<{ ok: true } | { ok: false; error: string }>
 }
 
 export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   const [mode, setMode] = useState<AuthMode>('login')
   const [name, setName] = useState('')
+  const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -25,11 +28,23 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
     setError('')
     setLoading(true)
 
-    const result =
-      mode === 'login'
-        ? await onLogin({ name, password })
-        : await onRegister({ name, password })
+    if (mode === 'register') {
+      if (!isValidNickname(nickname)) {
+        setLoading(false)
+        setError('Nickname: 3–20 caracteres (a-z, 0-9, _).')
+        return
+      }
+      const result = await onRegister({
+        name,
+        password,
+        nickname: normalizeNickname(nickname),
+      })
+      setLoading(false)
+      if (!result.ok) setError(result.error)
+      return
+    }
 
+    const result = await onLogin({ name, password })
     setLoading(false)
     if (!result.ok) setError(result.error)
   }
@@ -72,22 +87,46 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label>
-            <span>Nome</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={
-                mode === 'register'
-                  ? 'Como aparece no ranking'
-                  : 'Seu nome'
-              }
-              autoComplete="username"
-              required
-              maxLength={32}
-              autoFocus
-            />
-          </label>
+          {mode === 'register' ? (
+            <>
+              <label>
+                <span>Nome</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Como aparece no ranking"
+                  autoComplete="name"
+                  required
+                  maxLength={32}
+                  autoFocus
+                />
+              </label>
+              <label>
+                <span>Nickname</span>
+                <input
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="ex: renato_bh"
+                  autoComplete="username"
+                  required
+                  maxLength={20}
+                />
+              </label>
+            </>
+          ) : (
+            <label>
+              <span>Nickname ou nome</span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nickname ou nome"
+                autoComplete="username"
+                required
+                maxLength={32}
+                autoFocus
+              />
+            </label>
+          )}
 
           <label>
             <span>Senha</span>
@@ -99,7 +138,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
                 mode === 'login' ? 'current-password' : 'new-password'
               }
               required
-              maxLength={64}
+              minLength={6}
             />
           </label>
 
@@ -107,7 +146,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
 
           <button
             type="submit"
-            className="btn btn-primary btn-wide"
+            className="btn btn-primary"
             disabled={loading}
           >
             {loading

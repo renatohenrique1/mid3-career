@@ -1,6 +1,8 @@
 import { AuthScreen } from './components/AuthScreen'
 import { AppShell } from './components/AppShell'
+import { NicknameSetup } from './components/NicknameSetup'
 import { useAppData } from './data/useAppData'
+import { needsNicknameSetup } from './data/profile'
 import './App.css'
 
 export default function App() {
@@ -17,6 +19,10 @@ export default function App() {
     finishTournament,
     recordMatch,
     removeMatch,
+    updateProfile,
+    requestMatchEdit,
+    withdrawMatchEdit,
+    resolveMatchEdit,
   } = useAppData()
 
   if (booting) {
@@ -40,6 +46,8 @@ export default function App() {
 
       {!currentUser ? (
         <AuthScreen onLogin={login} onRegister={register} />
+      ) : needsNicknameSetup(currentUser) ? (
+        <NicknameSetup name={currentUser.name} onSave={updateProfile} />
       ) : (
         <AppShell
           data={data}
@@ -50,6 +58,10 @@ export default function App() {
           onFinishTournament={finishTournament}
           onRecordMatch={recordMatch}
           onDeleteMatch={removeMatch}
+          onUpdateProfile={updateProfile}
+          onRequestMatchEdit={requestMatchEdit}
+          onWithdrawMatchEdit={withdrawMatchEdit}
+          onResolveMatchEdit={resolveMatchEdit}
         />
       )}
     </div>
