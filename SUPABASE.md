@@ -24,7 +24,7 @@ O app funciona em dois modos:
 2. Desative **Confirm email** (senão o signup fica pendente)  
 3. Salve  
 
-O app gera um e-mail interno a partir do nome (`nome@mid3.players`) só para o Auth do Supabase. Na UI continua **nome + senha**.
+O app gera um e-mail interno a partir do nome (`nome@mid3career.app`) só para o Auth do Supabase. Na UI continua **nome + senha**.
 
 ## 4. Chaves no app
 

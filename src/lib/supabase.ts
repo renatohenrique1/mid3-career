@@ -33,5 +33,6 @@ export function toAuthEmail(name: string): string {
   const local =
     key.replace(/[^a-z0-9._-]/g, '').replace(/^\.+|\.+$/g, '').slice(0, 64) ||
     'player'
-  return `${local}@mid3.players`
+  // Domínio com TLD válido — Supabase rejeita TLDs inventados (ex.: .players).
+  return `${local}@mid3career.app`
 }
