@@ -261,12 +261,8 @@ function MatchEditForm({
     match.durationMinutes?.toString() ?? '',
   )
   const [ball, setBall] = useState<BallBrand | ''>(match.ball ?? '')
-  const [racketA, setRacketA] = useState<RacketModel | ''>(
-    match.racketA ?? '',
-  )
-  const [racketB, setRacketB] = useState<RacketModel | ''>(
-    match.racketB ?? '',
-  )
+  const [racketA] = useState<RacketModel | ''>(match.racketA ?? '')
+  const [racketB] = useState<RacketModel | ''>(match.racketB ?? '')
   const [error, setError] = useState('')
 
   if (!open) {

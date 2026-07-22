@@ -16,7 +16,7 @@ import {
   surfaceLabel,
   tournamentMatchDateError,
 } from '../data/ranking'
-import { RACKET_MODELS, racketLabel } from '../data/profile'
+import { RACKET_MODELS } from '../data/profile'
 import type {
   BallBrand,
   Match,
