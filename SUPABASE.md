@@ -22,7 +22,8 @@ Se o projeto **já existia**, rode também:
 
 1. [`supabase/migration_classic_structure.sql`](./supabase/migration_classic_structure.sql)  
 2. [`supabase/migration_profiles_cards.sql`](./supabase/migration_profiles_cards.sql) (nickname, card, raquetes, pedidos de edição de set)  
-3. [`supabase/migration_match_update_rls.sql`](./supabase/migration_match_update_rls.sql) (permite aplicar edição aprovada no set)
+3. [`supabase/migration_match_update_rls.sql`](./supabase/migration_match_update_rls.sql) (permite aplicar edição aprovada no set)  
+4. [`supabase/migration_match_venue_court.sql`](./supabase/migration_match_venue_court.sql) (local e quadra do set)
 
 ## 3. Auth (nome + senha)
 

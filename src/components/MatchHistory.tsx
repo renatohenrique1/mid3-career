@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
-import { describeMatchEditChanges } from '../data/matchEdits'
+import {
+  describeMatchEditChanges,
+  requiresMatchEditApproval,
+} from '../data/matchEdits'
 import { racketLabel } from '../data/profile'
 import {
   BALL_OPTIONS,
@@ -9,8 +12,19 @@ import {
   normalizeFormat,
   surfaceLabel,
 } from '../data/ranking'
+import {
+  courtLabel,
+  courtsForVenueSurface,
+  defaultCourtForVenueSurface,
+  isValidVenueCourt,
+  lockedSurfaceForVenue,
+  resolveSurfaceForVenue,
+  venueLabel,
+  VENUE_OPTIONS,
+} from '../data/venues'
 import type {
   BallBrand,
+  CourtId,
   Match,
   MatchEditPayload,
   MatchEditRequest,
@@ -18,6 +32,7 @@ import type {
   Surface,
   Tournament,
   User,
+  VenueId,
 } from '../types'
 import { MatchDetailModal } from './MatchDetailModal'
 
@@ -30,6 +45,10 @@ interface MatchHistoryProps {
   /** Formato do torneio ou classic para validar placar */
   scoreFormat?: import('../types').TournamentFormat
   onDelete: (matchId: string) => void
+  onUpdateMatch?: (
+    matchId: string,
+    payload: MatchEditPayload,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
   onRequestEdit?: (
     matchId: string,
     payload: MatchEditPayload,
@@ -60,6 +79,7 @@ export function MatchHistory({
   tournaments = [],
   scoreFormat = 'classic',
   onDelete,
+  onUpdateMatch,
   onRequestEdit,
   onWithdrawEdit,
   onResolveEdit,
@@ -102,6 +122,9 @@ export function MatchHistory({
             const duration = formatDuration(match.durationMinutes)
             const ball = ballLabel(match.ball)
             const pending = pendingByMatch.get(match.id)
+            const venue = venueLabel(match.venue)
+            const court =
+              match.venue === 'ceret' ? courtLabel(match.court) : null
             const racketBits = [
               match.racketA ? `${nameA}: ${racketLabel(match.racketA)}` : null,
               match.racketB ? `${nameB}: ${racketLabel(match.racketB)}` : null,
@@ -130,8 +153,17 @@ export function MatchHistory({
                     </strong>
                     <span className={!aWon ? 'winner' : ''}>{nameB}</span>
                   </div>
-                  {duration || ball || racketBits.length ? (
+                  {match.venue ||
+                  duration ||
+                  ball ||
+                  racketBits.length ? (
                     <div className="history-extras">
+                      {match.venue ? (
+                        <span>
+                          {venue}
+                          {court && court !== '—' ? ` · ${court}` : ''}
+                        </span>
+                      ) : null}
                       {duration ? <span>{duration}</span> : null}
                       {ball ? <span>{ball}</span> : null}
                       {racketBits.map((t) => (
@@ -154,13 +186,34 @@ export function MatchHistory({
                 ) : null}
 
                 <div className="history-actions">
-                  {isParticipant && onRequestEdit && !pending ? (
+                  {isParticipant &&
+                  (onUpdateMatch || onRequestEdit) &&
+                  !pending ? (
                     <MatchEditForm
                       match={match}
                       users={users}
                       scoreFormat={scoreFormat}
                       onSubmit={async (payload) => {
-                        const result = await onRequestEdit(match.id, payload)
+                        const needsApproval = requiresMatchEditApproval(
+                          match,
+                          payload,
+                        )
+                        if (needsApproval) {
+                          if (!onRequestEdit) {
+                            alert(
+                              'Mudança de placar precisa de aprovação do outro jogador.',
+                            )
+                            return
+                          }
+                          const result = await onRequestEdit(match.id, payload)
+                          if (!result.ok) alert(result.error)
+                          return
+                        }
+                        if (!onUpdateMatch) {
+                          alert('Não foi possível salvar a edição.')
+                          return
+                        }
+                        const result = await onUpdateMatch(match.id, payload)
                         if (!result.ok) alert(result.error)
                       }}
                     />
@@ -280,9 +333,17 @@ function MatchEditForm({
   scoreFormat: import('../types').TournamentFormat
   onSubmit: (payload: MatchEditPayload) => Promise<void>
 }) {
+  const initialVenue: VenueId = match.venue ?? 'ceret'
+  const initialSurface = resolveSurfaceForVenue(initialVenue, match.surface)
   const [open, setOpen] = useState(false)
   const [date, setDate] = useState(match.date)
-  const [surface, setSurface] = useState<Surface>(match.surface)
+  const [venue, setVenue] = useState<VenueId>(initialVenue)
+  const [surface, setSurface] = useState<Surface>(initialSurface)
+  const [court, setCourt] = useState<CourtId | ''>(
+    match.court ??
+      defaultCourtForVenueSurface(initialVenue, initialSurface) ??
+      '',
+  )
   const [gamesA, setGamesA] = useState(match.gamesA)
   const [gamesB, setGamesB] = useState(match.gamesB)
   const [durationMinutes, setDurationMinutes] = useState(
@@ -293,6 +354,23 @@ function MatchEditForm({
   const [racketB] = useState<RacketModel | ''>(match.racketB ?? '')
   const [error, setError] = useState('')
 
+  const surfaceLocked = lockedSurfaceForVenue(venue) !== null
+  const courtOptions = courtsForVenueSurface(venue, surface)
+  const showCourt = venue === 'ceret'
+
+  function applyVenue(nextVenue: VenueId) {
+    const nextSurface = resolveSurfaceForVenue(nextVenue, surface)
+    setVenue(nextVenue)
+    setSurface(nextSurface)
+    setCourt(defaultCourtForVenueSurface(nextVenue, nextSurface) ?? '')
+  }
+
+  function applySurface(nextSurface: Surface) {
+    if (surfaceLocked) return
+    setSurface(nextSurface)
+    setCourt(defaultCourtForVenueSurface(venue, nextSurface) ?? '')
+  }
+
   if (!open) {
     return (
       <button
@@ -300,7 +378,7 @@ function MatchEditForm({
         className="link-btn"
         onClick={() => setOpen(true)}
       >
-        Pedir alteração
+        Editar
       </button>
     )
   }
@@ -315,6 +393,15 @@ function MatchEditForm({
           setError('Placar inválido para este formato.')
           return
         }
+        const resolvedCourt = showCourt ? court || null : null
+        if (!isValidVenueCourt(venue, surface, resolvedCourt)) {
+          setError(
+            showCourt
+              ? 'Escolha a quadra do CERET.'
+              : 'Local ou superfície inválidos.',
+          )
+          return
+        }
         let duration: number | null = null
         if (durationMinutes.trim()) {
           const v = Number(durationMinutes)
@@ -327,6 +414,8 @@ function MatchEditForm({
         await onSubmit({
           date,
           surface,
+          venue,
+          court: resolvedCourt,
           playerAId: match.playerAId,
           playerBId: match.playerBId,
           gamesA,
@@ -339,7 +428,11 @@ function MatchEditForm({
         setOpen(false)
       }}
     >
-      <p className="quick-label">Solicitar alteração</p>
+      <p className="quick-label">Editar set</p>
+      <p className="quick-hint">
+        Local, quadra, superfície e extras salvam na hora. Mudança de placar
+        pede aprovação do outro jogador.
+      </p>
       <div className="form-row">
         <label>
           <span>Data</span>
@@ -351,15 +444,48 @@ function MatchEditForm({
           />
         </label>
         <label>
-          <span>Quadra</span>
+          <span>Local</span>
+          <select
+            value={venue}
+            onChange={(e) => applyVenue(e.target.value as VenueId)}
+            required
+          >
+            {VENUE_OPTIONS.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="form-row">
+        <label>
+          <span>Superfície</span>
           <select
             value={surface}
-            onChange={(e) => setSurface(e.target.value as Surface)}
+            onChange={(e) => applySurface(e.target.value as Surface)}
+            disabled={surfaceLocked}
           >
             <option value="hard">{surfaceLabel('hard')}</option>
             <option value="clay">{surfaceLabel('clay')}</option>
           </select>
         </label>
+        {showCourt ? (
+          <label>
+            <span>Quadra</span>
+            <select
+              value={court}
+              onChange={(e) => setCourt((e.target.value as CourtId) || '')}
+              required
+            >
+              {courtOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
       <div className="form-row">
         <label>
@@ -408,7 +534,7 @@ function MatchEditForm({
       {error ? <p className="form-error">{error}</p> : null}
       <div className="create-actions">
         <button type="submit" className="btn btn-primary">
-          Enviar pedido
+          Salvar
         </button>
         <button
           type="button"

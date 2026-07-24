@@ -21,6 +21,7 @@ export default function App() {
     removeMatch,
     updateProfile,
     requestMatchEdit,
+    updateMatch,
     withdrawMatchEdit,
     resolveMatchEdit,
   } = useAppData()
@@ -59,6 +60,7 @@ export default function App() {
           onRecordMatch={recordMatch}
           onDeleteMatch={removeMatch}
           onUpdateProfile={updateProfile}
+          onUpdateMatch={updateMatch}
           onRequestMatchEdit={requestMatchEdit}
           onWithdrawMatchEdit={withdrawMatchEdit}
           onResolveMatchEdit={resolveMatchEdit}

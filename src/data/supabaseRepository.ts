@@ -26,6 +26,7 @@ import { getSupabase, toAuthEmail } from '../lib/supabase'
 import type {
   AuthResult,
   DataRepository,
+  AddMatchResult,
   MatchEditResult,
   MutationOk,
   ProfileResult,
@@ -68,6 +69,8 @@ type MatchRow = {
   tournament_id: string | null
   match_date: string
   surface: 'hard' | 'clay'
+  venue: string | null
+  court: string | null
   player_a_id: string
   player_b_id: string
   games_a: number
@@ -138,6 +141,8 @@ function mapMatch(row: MatchRow): Match {
     tournamentId: row.tournament_id,
     date: row.match_date,
     surface: row.surface,
+    venue: (row.venue as Match['venue']) ?? null,
+    court: (row.court as Match['court']) ?? null,
     playerAId: row.player_a_id,
     playerBId: row.player_b_id,
     gamesA: row.games_a,
@@ -617,7 +622,7 @@ export const supabaseRepository: DataRepository = {
     }
   },
 
-  async addMatch(match): Promise<MutationOk> {
+  async addMatch(match): Promise<AddMatchResult> {
     const sb = getSupabase()
 
     if (match.tournamentId) {
@@ -665,22 +670,30 @@ export const supabaseRepository: DataRepository = {
       if (pairError) return { ok: false, error: pairError }
     }
 
-    const { error } = await sb.from('matches').insert({
-      tournament_id: match.tournamentId,
-      match_date: match.date,
-      surface: match.surface,
-      player_a_id: match.playerAId,
-      player_b_id: match.playerBId,
-      games_a: match.gamesA,
-      games_b: match.gamesB,
-      duration_minutes: match.durationMinutes ?? null,
-      ball: match.ball ?? null,
-      racket_a: match.racketA ?? null,
-      racket_b: match.racketB ?? null,
-      recorded_by_id: match.recordedById,
-    })
+    const { data: inserted, error } = await sb
+      .from('matches')
+      .insert({
+        tournament_id: match.tournamentId,
+        match_date: match.date,
+        surface: match.surface,
+        venue: match.venue ?? null,
+        court: match.court ?? null,
+        player_a_id: match.playerAId,
+        player_b_id: match.playerBId,
+        games_a: match.gamesA,
+        games_b: match.gamesB,
+        duration_minutes: match.durationMinutes ?? null,
+        ball: match.ball ?? null,
+        racket_a: match.racketA ?? null,
+        racket_b: match.racketB ?? null,
+        recorded_by_id: match.recordedById,
+      })
+      .select('id')
+      .single()
 
-    if (error) return { ok: false, error: error.message }
+    if (error || !inserted) {
+      return { ok: false, error: error?.message ?? 'Falha ao salvar o set.' }
+    }
 
     if (match.tournamentId) {
       await sb.from('tournament_participants').upsert([
@@ -690,7 +703,7 @@ export const supabaseRepository: DataRepository = {
       await tryAutoFinishSupabaseTournament(match.tournamentId)
     }
 
-    return { ok: true }
+    return { ok: true, matchId: inserted.id as string }
   },
 
   async deleteMatch(matchId, requesterId): Promise<MutationOk> {
@@ -702,6 +715,69 @@ export const supabaseRepository: DataRepository = {
       .eq('recorded_by_id', requesterId)
 
     if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  },
+
+  async updateMatch(matchId, editorId, payload): Promise<MutationOk> {
+    const sb = getSupabase()
+    const { data: matchRow, error: matchError } = await sb
+      .from('matches')
+      .select('player_a_id, player_b_id')
+      .eq('id', matchId)
+      .maybeSingle()
+
+    if (matchError || !matchRow) {
+      return { ok: false, error: 'Set não encontrado.' }
+    }
+    if (
+      matchRow.player_a_id !== editorId &&
+      matchRow.player_b_id !== editorId
+    ) {
+      return { ok: false, error: 'Você não participou deste set.' }
+    }
+
+    const { data: pending } = await sb
+      .from('match_edit_requests')
+      .select('id')
+      .eq('match_id', matchId)
+      .eq('status', 'pending')
+      .maybeSingle()
+    if (pending) {
+      return {
+        ok: false,
+        error: 'Há um pedido de alteração pendente. Resolva ou retire antes.',
+      }
+    }
+
+    const normalized = normalizeMatchEditPayload(payload)
+    const { data: updated, error } = await sb
+      .from('matches')
+      .update({
+        match_date: normalized.date,
+        surface: normalized.surface,
+        venue: normalized.venue,
+        court: normalized.court,
+        player_a_id: normalized.playerAId,
+        player_b_id: normalized.playerBId,
+        games_a: normalized.gamesA,
+        games_b: normalized.gamesB,
+        duration_minutes: normalized.durationMinutes ?? null,
+        ball: normalized.ball ?? null,
+        racket_a: normalized.racketA ?? null,
+        racket_b: normalized.racketB ?? null,
+      })
+      .eq('id', matchId)
+      .select('id')
+      .maybeSingle()
+
+    if (error) return { ok: false, error: error.message }
+    if (!updated) {
+      return {
+        ok: false,
+        error:
+          'Não foi possível atualizar o set (permissão). Rode a migration matches UPDATE no Supabase.',
+      }
+    }
     return { ok: true }
   },
 
@@ -828,6 +904,8 @@ export const supabaseRepository: DataRepository = {
         .update({
           match_date: payload.date,
           surface: payload.surface,
+          venue: payload.venue,
+          court: payload.court,
           player_a_id: payload.playerAId,
           player_b_id: payload.playerBId,
           games_a: payload.gamesA,

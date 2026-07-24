@@ -660,6 +660,43 @@ button {
   text-align: center;
 }
 
+.register-success-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+}
+
+.register-success-item {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.register-success-item .register-success-match {
+  margin: 0;
+}
+
+.register-success-item .register-success-detail {
+  padding: 0 0.15rem;
+}
+
+.register-success-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.15rem 0.15rem 0;
+}
+
+.register-success-total {
+  margin: 0.35rem 0 0;
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
 .register-success-match strong {
   font-size: 0.98rem;
   line-height: 1.25;
@@ -2711,6 +2748,11 @@ option {
   background: var(--clay-soft);
   border-color: var(--clay);
   color: var(--clay);
+}
+
+.surface-toggle button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .quick-scores {

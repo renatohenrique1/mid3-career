@@ -180,26 +180,22 @@ export function useAppData() {
   const recordMatch = useCallback(
     async (match: Omit<Match, 'id' | 'createdAt'>) => {
       const result = await getRepository().addMatch(match)
-      if (!result.ok) {
-        alert(result.error)
-        return
-      }
-      await refreshFromRepo()
+      if (result.ok) await refreshFromRepo()
+      return result
     },
     [],
   )
 
   const removeMatch = useCallback(async (matchId: string) => {
-    if (!sessionSnapshot?.userId) return
+    if (!sessionSnapshot?.userId) {
+      return { ok: false as const, error: 'Faça login para apagar o set.' }
+    }
     const result = await getRepository().deleteMatch(
       matchId,
       sessionSnapshot.userId,
     )
-    if (!result.ok) {
-      alert(result.error)
-      return
-    }
-    await refreshFromRepo()
+    if (result.ok) await refreshFromRepo()
+    return result
   }, [])
 
   const updateProfile = useCallback(
@@ -210,6 +206,22 @@ export function useAppData() {
       const result = await getRepository().updateProfile(
         sessionSnapshot.userId,
         input,
+      )
+      if (result.ok) await refreshFromRepo()
+      return result
+    },
+    [],
+  )
+
+  const updateMatch = useCallback(
+    async (matchId: string, payload: MatchEditPayload) => {
+      if (!sessionSnapshot?.userId) {
+        return { ok: false as const, error: 'Faça login para editar o set.' }
+      }
+      const result = await getRepository().updateMatch(
+        matchId,
+        sessionSnapshot.userId,
+        payload,
       )
       if (result.ok) await refreshFromRepo()
       return result
@@ -276,6 +288,7 @@ export function useAppData() {
     recordMatch,
     removeMatch,
     updateProfile,
+    updateMatch,
     requestMatchEdit,
     withdrawMatchEdit,
     resolveMatchEdit,

@@ -15,6 +15,10 @@ export type AuthResult =
 
 export type MutationOk = { ok: true } | { ok: false; error: string }
 
+export type AddMatchResult =
+  | { ok: true; matchId: string }
+  | { ok: false; error: string }
+
 export type ProfileResult =
   | { ok: true; user: User }
   | { ok: false; error: string }
@@ -58,8 +62,14 @@ export interface DataRepository {
     requesterId: string,
     options?: { auto?: boolean },
   ): Promise<TournamentResult>
-  addMatch(match: Omit<Match, 'id' | 'createdAt'>): Promise<MutationOk>
+  addMatch(match: Omit<Match, 'id' | 'createdAt'>): Promise<AddMatchResult>
   deleteMatch(matchId: string, requesterId: string): Promise<MutationOk>
+  /** Participante atualiza set na hora (local, superfície, etc.). */
+  updateMatch(
+    matchId: string,
+    editorId: string,
+    payload: MatchEditPayload,
+  ): Promise<MutationOk>
   requestMatchEdit(
     matchId: string,
     requesterId: string,

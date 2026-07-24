@@ -1,6 +1,13 @@
 import { ballLabel, formatDuration, surfaceLabel } from './ranking'
 import { racketLabel } from './profile'
-import type { Match, MatchEditPayload, User } from '../types'
+import { courtLabel, venueLabel } from './venues'
+import type {
+  CourtId,
+  Match,
+  MatchEditPayload,
+  User,
+  VenueId,
+} from '../types'
 
 /** Aceita payload camelCase (app) ou snake_case (legado/manual). */
 export function normalizeMatchEditPayload(raw: unknown): MatchEditPayload {
@@ -9,9 +16,18 @@ export function normalizeMatchEditPayload(raw: unknown): MatchEditPayload {
     const n = Number(v)
     return Number.isFinite(n) ? n : fallback
   }
+  const venue = (p.venue as VenueId | undefined) ?? 'ceret'
+  const courtRaw = p.court
+  const court =
+    courtRaw === undefined || courtRaw === null || courtRaw === ''
+      ? null
+      : (courtRaw as CourtId)
+
   return {
     date: String(p.date ?? p.match_date ?? ''),
     surface: (p.surface as MatchEditPayload['surface']) ?? 'hard',
+    venue,
+    court: venue === 'ceret' ? court : null,
     playerAId: String(p.playerAId ?? p.player_a_id ?? ''),
     playerBId: String(p.playerBId ?? p.player_b_id ?? ''),
     gamesA: num(p.gamesA ?? p.games_a),
@@ -36,6 +52,16 @@ export function describeMatchEditChanges(
 
   if (payload.date !== match.date) {
     changes.push(`Data: ${formatDate(match.date)} → ${formatDate(payload.date)}`)
+  }
+  if (payload.venue !== (match.venue ?? null)) {
+    changes.push(
+      `Local: ${venueLabel(match.venue)} → ${venueLabel(payload.venue)}`,
+    )
+  }
+  if ((payload.court ?? null) !== (match.court ?? null)) {
+    changes.push(
+      `Quadra: ${courtLabel(match.court)} → ${courtLabel(payload.court)}`,
+    )
   }
   if (payload.surface !== match.surface) {
     changes.push(
@@ -80,6 +106,19 @@ export function describeMatchEditChanges(
   }
 
   return changes.length > 0 ? changes : ['Sem diferenças detectadas']
+}
+
+/** Placar ou jogadores mudaram → precisa aprovação do outro. */
+export function requiresMatchEditApproval(
+  match: Match,
+  payload: MatchEditPayload,
+): boolean {
+  return (
+    payload.gamesA !== match.gamesA ||
+    payload.gamesB !== match.gamesB ||
+    payload.playerAId !== match.playerAId ||
+    payload.playerBId !== match.playerBId
+  )
 }
 
 function formatDate(iso: string) {

@@ -1,5 +1,6 @@
 import { describeMatchEditChanges } from '../data/matchEdits'
 import { surfaceLabel } from '../data/ranking'
+import { venueLabel } from '../data/venues'
 import type { Match, MatchEditRequest, User } from '../types'
 
 function userName(users: User[], id: string) {
@@ -83,8 +84,8 @@ export function PendingEditsModal({
                   </strong>
                   <span className="muted-inline">
                     {' '}
-                    · {formatDate(match.date)} · {surfaceLabel(match.surface)}{' '}
-                    · {match.gamesA}–{match.gamesB}
+                    · {formatDate(match.date)} · {venueLabel(match.venue)} ·{' '}
+                    {surfaceLabel(match.surface)} · {match.gamesA}–{match.gamesB}
                   </span>
                 </p>
                 <p className="muted-inline">

@@ -58,6 +58,19 @@ create table if not exists public.matches (
   tournament_id uuid references public.tournaments (id) on delete set null,
   match_date date not null,
   surface text not null check (surface in ('hard', 'clay')),
+  venue text check (
+    venue is null
+    or venue in (
+      'ceret',
+      'ibirapuera',
+      'parque_manchester',
+      'parque_da_mooca'
+    )
+  ),
+  court text check (
+    court is null
+    or court in ('coliseu', 'anexa', 'rachadura', 'saibro')
+  ),
   player_a_id uuid not null references public.profiles (id),
   player_b_id uuid not null references public.profiles (id),
   games_a integer not null check (games_a >= 0),

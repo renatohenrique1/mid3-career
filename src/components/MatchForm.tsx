@@ -17,14 +17,36 @@ import {
   tournamentMatchDateError,
 } from '../data/ranking'
 import { RACKET_MODELS } from '../data/profile'
+import {
+  courtsForVenueSurface,
+  defaultCourtForVenueSurface,
+  isValidVenueCourt,
+  lockedSurfaceForVenue,
+  resolveSurfaceForVenue,
+  VENUE_OPTIONS,
+} from '../data/venues'
 import type {
   BallBrand,
+  CourtId,
   Match,
+  MatchEditPayload,
   RacketModel,
   Surface,
   TournamentFormat,
   User,
+  VenueId,
 } from '../types'
+
+type MatchDraft = Omit<Match, 'id' | 'createdAt'>
+
+type SessionSavedSet = {
+  matchId: string
+  draft: MatchDraft
+  winnerName: string
+  loserName: string
+  score: string
+  points: number
+}
 
 interface MatchFormProps {
   tournamentId?: string | null
@@ -34,12 +56,40 @@ interface MatchFormProps {
   format?: TournamentFormat
   users: User[]
   currentUser: User
-  onSubmit: (match: Omit<Match, 'id' | 'createdAt'>) => void
+  onSubmit: (
+    match: MatchDraft,
+  ) => Promise<{ ok: true; matchId: string } | { ok: false; error: string }>
+  onUpdate: (
+    matchId: string,
+    payload: MatchEditPayload,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
+  onDelete: (
+    matchId: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string } | void>
   onClose: () => void
 }
 
 function userById(users: User[], id: string) {
   return users.find((u) => u.id === id)
+}
+
+function summaryFromDraft(
+  draft: MatchDraft,
+  users: User[],
+  format: TournamentFormat,
+) {
+  const aWon = draft.gamesA > draft.gamesB
+  const winnerName = aWon
+    ? (userById(users, draft.playerAId)?.name ?? 'Jogador A')
+    : (userById(users, draft.playerBId)?.name ?? 'Jogador B')
+  const loserName = aWon
+    ? (userById(users, draft.playerBId)?.name ?? 'Jogador B')
+    : (userById(users, draft.playerAId)?.name ?? 'Jogador A')
+  const score = aWon
+    ? `${draft.gamesA}–${draft.gamesB}`
+    : `${draft.gamesB}–${draft.gamesA}`
+  const points = pointsForWin(format, draft.gamesA, draft.gamesB)
+  return { winnerName, loserName, score, points }
 }
 
 export function MatchForm({
@@ -51,6 +101,8 @@ export function MatchForm({
   users,
   currentUser,
   onSubmit,
+  onUpdate,
+  onDelete,
   onClose,
 }: MatchFormProps) {
   const matchFormat = normalizeFormat(format)
@@ -74,7 +126,9 @@ export function MatchForm({
   const initialized = useRef(false)
 
   const [date, setDate] = useState(defaultDate)
+  const [venue, setVenue] = useState<VenueId>('ceret')
   const [surface, setSurface] = useState<Surface>('hard')
+  const [court, setCourt] = useState<CourtId | ''>('coliseu')
   const [playerAId, setPlayerAId] = useState(currentUser.id)
   const [playerBId, setPlayerBId] = useState(others[0]?.id ?? '')
   const [gamesA, setGamesA] = useState(defaultA)
@@ -88,12 +142,10 @@ export function MatchForm({
     () => others[0]?.primaryRacket ?? '',
   )
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState<{
-    winnerName: string
-    loserName: string
-    score: string
-    points: number
-  } | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [savedSets, setSavedSets] = useState<SessionSavedSet[]>([])
+  const [showDone, setShowDone] = useState(false)
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
 
   useEffect(() => {
     const a = userById(users, playerAId)
@@ -110,11 +162,11 @@ export function MatchForm({
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !success) onClose()
+      if (e.key === 'Escape' && !showDone) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, success])
+  }, [onClose, showDone])
 
   const playerA = userById(users, playerAId)
   const playerB = userById(users, playerBId)
@@ -128,6 +180,25 @@ export function MatchForm({
 
   const opponentsForA = users.filter((u) => u.id !== playerAId)
   const opponentsForB = users.filter((u) => u.id !== playerBId)
+
+  const surfaceLocked = lockedSurfaceForVenue(venue) !== null
+  const courtOptions = courtsForVenueSurface(venue, surface)
+  const showCourt = venue === 'ceret'
+
+  function applyVenue(nextVenue: VenueId) {
+    const nextSurface = resolveSurfaceForVenue(nextVenue, surface)
+    setVenue(nextVenue)
+    setSurface(nextSurface)
+    setCourt(defaultCourtForVenueSurface(nextVenue, nextSurface) ?? '')
+    setError('')
+  }
+
+  function applySurface(nextSurface: Surface) {
+    if (surfaceLocked) return
+    setSurface(nextSurface)
+    setCourt(defaultCourtForVenueSurface(venue, nextSurface) ?? '')
+    setError('')
+  }
 
   function bump(side: 'a' | 'b', delta: number) {
     setError('')
@@ -157,6 +228,21 @@ export function MatchForm({
     setError('')
   }
 
+  function applyDraft(draft: MatchDraft) {
+    setDate(draft.date)
+    setVenue(draft.venue ?? 'ceret')
+    setSurface(draft.surface)
+    setCourt(draft.court ?? '')
+    setPlayerAId(draft.playerAId)
+    setPlayerBId(draft.playerBId)
+    setGamesA(draft.gamesA)
+    setGamesB(draft.gamesB)
+    setDurationMinutes(draft.durationMinutes?.toString() ?? '')
+    setBall(draft.ball ?? '')
+    setRacketA(draft.racketA ?? '')
+    setRacketB(draft.racketB ?? '')
+  }
+
   function resetForNext() {
     const [nextA, nextB] = defaultScoreForFormat(matchFormat)
     setGamesA(nextA)
@@ -164,12 +250,38 @@ export function MatchForm({
     setDate(defaultDate)
     setDurationMinutes('')
     setBall('')
-    setSuccess(null)
+    setEditingMatchId(null)
+    setShowDone(false)
     setError('')
     window.scrollTo(0, 0)
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function startEdit(set: SessionSavedSet) {
+    applyDraft(set.draft)
+    setEditingMatchId(set.matchId)
+    setShowDone(false)
+    setError('')
+    window.scrollTo(0, 0)
+  }
+
+  async function removeSaved(matchId: string) {
+    if (!confirm('Apagar este set?')) return
+    const result = await onDelete(matchId)
+    if (result && !result.ok) {
+      alert(result.error)
+      return
+    }
+    setSavedSets((prev) => {
+      const next = prev.filter((s) => s.matchId !== matchId)
+      if (next.length === 0) setShowDone(false)
+      return next
+    })
+    if (editingMatchId === matchId) {
+      setEditingMatchId(null)
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
@@ -183,6 +295,16 @@ export function MatchForm({
     }
     if (!isValidMatchScore(matchFormat, gamesA, gamesB)) {
       setError(scoreErrorMessage(matchFormat))
+      return
+    }
+
+    const resolvedCourt = showCourt ? court || null : null
+    if (!isValidVenueCourt(venue, surface, resolvedCourt)) {
+      setError(
+        showCourt
+          ? 'Escolha a quadra do CERET.'
+          : 'Local ou superfície inválidos.',
+      )
       return
     }
 
@@ -207,20 +329,12 @@ export function MatchForm({
       parsedDuration = Math.round(value)
     }
 
-    const aWon = gamesA > gamesB
-    const winnerName = aWon
-      ? (userById(users, playerAId)?.name ?? 'Jogador A')
-      : (userById(users, playerBId)?.name ?? 'Jogador B')
-    const loserName = aWon
-      ? (userById(users, playerBId)?.name ?? 'Jogador B')
-      : (userById(users, playerAId)?.name ?? 'Jogador A')
-    const score = aWon ? `${gamesA}–${gamesB}` : `${gamesB}–${gamesA}`
-    const points = pointsForWin(matchFormat, gamesA, gamesB)
-
-    onSubmit({
+    const draft: MatchDraft = {
       tournamentId: tournamentId ?? null,
       date,
       surface,
+      venue,
+      court: resolvedCourt,
       playerAId,
       playerBId,
       gamesA,
@@ -230,10 +344,58 @@ export function MatchForm({
       racketA: racketA || null,
       racketB: racketB || null,
       recordedById: currentUser.id,
-    })
+    }
+    const summary = summaryFromDraft(draft, users, matchFormat)
 
-    setSuccess({ winnerName, loserName, score, points })
-    window.scrollTo(0, 0)
+    setSaving(true)
+    try {
+      if (editingMatchId) {
+        const result = await onUpdate(editingMatchId, {
+          date: draft.date,
+          surface: draft.surface,
+          venue: draft.venue!,
+          court: draft.court ?? null,
+          playerAId: draft.playerAId,
+          playerBId: draft.playerBId,
+          gamesA: draft.gamesA,
+          gamesB: draft.gamesB,
+          durationMinutes: draft.durationMinutes ?? null,
+          ball: draft.ball ?? null,
+          racketA: draft.racketA ?? null,
+          racketB: draft.racketB ?? null,
+        })
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+        setSavedSets((prev) =>
+          prev.map((s) =>
+            s.matchId === editingMatchId
+              ? { ...s, draft, ...summary }
+              : s,
+          ),
+        )
+        setEditingMatchId(null)
+      } else {
+        const result = await onSubmit(draft)
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+        setSavedSets((prev) => [
+          ...prev,
+          {
+            matchId: result.matchId,
+            draft,
+            ...summary,
+          },
+        ])
+      }
+      setShowDone(true)
+      window.scrollTo(0, 0)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (users.length < 2) {
@@ -255,24 +417,62 @@ export function MatchForm({
     )
   }
 
-  if (success) {
+  if (showDone && savedSets.length > 0) {
+    const totalPoints = savedSets.reduce((sum, s) => sum + s.points, 0)
+    const contextLabel =
+      isTournament && tournamentName
+        ? `${tournamentName} · ${formatLabel(matchFormat)}`
+        : 'Set avulso · Clássico'
+
     return (
       <section className="register-page register-page-done">
         <div className="register-success panel">
           <p className="tourney-kicker">Registrado</p>
-          <h2>Set salvo</h2>
-          <p className="register-success-match">
-            <strong>{success.winnerName}</strong>
-            <span>{success.score}</span>
-            <strong>{success.loserName}</strong>
-          </p>
-          <p className="register-success-detail">
-            +{success.points} pt{success.points === 1 ? '' : 's'}
-            {' · '}
-            {isTournament && tournamentName
-              ? `${tournamentName} · ${formatLabel(matchFormat)}`
-              : 'Set avulso · Clássico'}
-          </p>
+          <h2>
+            {savedSets.length === 1
+              ? 'Set salvo'
+              : `${savedSets.length} sets salvos`}
+          </h2>
+
+          <ul className="register-success-list">
+            {savedSets.map((set) => (
+              <li key={set.matchId} className="register-success-item">
+                <p className="register-success-match">
+                  <strong>{set.winnerName}</strong>
+                  <span>{set.score}</span>
+                  <strong>{set.loserName}</strong>
+                </p>
+                <p className="register-success-detail">
+                  +{set.points} pt{set.points === 1 ? '' : 's'}
+                  {' · '}
+                  {contextLabel}
+                </p>
+                <div className="register-success-item-actions">
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => startEdit(set)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="link-btn danger"
+                    onClick={() => void removeSaved(set.matchId)}
+                  >
+                    Apagar
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {savedSets.length > 1 ? (
+            <p className="register-success-total">
+              Total: +{totalPoints} pt{totalPoints === 1 ? '' : 's'}
+            </p>
+          ) : null}
+
           <div className="register-success-actions">
             <button
               type="button"
@@ -300,8 +500,12 @@ export function MatchForm({
         <button type="button" className="link-btn" onClick={onClose}>
           ← Voltar
         </button>
-        <p className="tourney-kicker">Novo set</p>
-        <h2>Registrar partida</h2>
+        <p className="tourney-kicker">
+          {editingMatchId ? 'Editar set' : 'Novo set'}
+        </p>
+        <h2>
+          {editingMatchId ? 'Corrigir partida' : 'Registrar partida'}
+        </h2>
         <p>
           {isTournament && tournamentName
             ? `${tournamentName} · ${formatLabel(matchFormat)}`
@@ -432,25 +636,68 @@ export function MatchForm({
               />
             </label>
 
+            <label>
+              <span>Local</span>
+              <select
+                value={venue}
+                onChange={(e) => applyVenue(e.target.value as VenueId)}
+                required
+              >
+                {VENUE_OPTIONS.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="form-row">
             <fieldset className="surface-field">
-              <legend>Quadra</legend>
+              <legend>Superfície</legend>
               <div className="surface-toggle" role="group">
                 <button
                   type="button"
                   className={surface === 'hard' ? 'active hard' : 'hard'}
-                  onClick={() => setSurface('hard')}
+                  onClick={() => applySurface('hard')}
+                  disabled={surfaceLocked && surface !== 'hard'}
                 >
                   {surfaceLabel('hard')}
                 </button>
                 <button
                   type="button"
                   className={surface === 'clay' ? 'active clay' : 'clay'}
-                  onClick={() => setSurface('clay')}
+                  onClick={() => applySurface('clay')}
+                  disabled={surfaceLocked && surface !== 'clay'}
                 >
                   {surfaceLabel('clay')}
                 </button>
               </div>
+              {surfaceLocked ? (
+                <p className="quick-hint">Travada para este local</p>
+              ) : null}
             </fieldset>
+
+            {showCourt ? (
+              <label>
+                <span>Quadra</span>
+                <select
+                  value={court}
+                  onChange={(e) =>
+                    setCourt((e.target.value as CourtId) || '')
+                  }
+                  required
+                >
+                  {courtOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div aria-hidden className="form-row-spacer" />
+            )}
           </div>
 
           <div className="form-row">
@@ -555,10 +802,28 @@ export function MatchForm({
         <button
           type="submit"
           className="btn btn-primary btn-wide btn-register"
-          disabled={!scoreValid || playerAId === playerBId}
+          disabled={saving || !scoreValid || playerAId === playerBId}
         >
-          Salvar set
+          {saving
+            ? 'Salvando…'
+            : editingMatchId
+              ? 'Salvar alteração'
+              : 'Salvar set'}
         </button>
+        {editingMatchId ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-wide"
+            disabled={saving}
+            onClick={() => {
+              setEditingMatchId(null)
+              setError('')
+              setShowDone(savedSets.length > 0)
+            }}
+          >
+            Voltar à lista
+          </button>
+        ) : null}
       </form>
     </section>
   )

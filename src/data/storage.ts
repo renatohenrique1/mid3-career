@@ -314,6 +314,36 @@ export function updateProfile(
   return { ok: true, user: next }
 }
 
+export function updateMatch(
+  matchId: string,
+  editorId: string,
+  payload: MatchEditPayload,
+): { ok: true } | { ok: false; error: string } {
+  const data = loadData()
+  const match = data.matches.find((m) => m.id === matchId)
+  if (!match) return { ok: false, error: 'Set não encontrado.' }
+  if (match.playerAId !== editorId && match.playerBId !== editorId) {
+    return { ok: false, error: 'Você não participou deste set.' }
+  }
+
+  const hasPending = data.matchEditRequests.some(
+    (r) => r.matchId === matchId && r.status === 'pending',
+  )
+  if (hasPending) {
+    return {
+      ok: false,
+      error: 'Há um pedido de alteração pendente. Resolva ou retire antes.',
+    }
+  }
+
+  const normalized = normalizeMatchEditPayload(payload)
+  const nextMatches = data.matches.map((m) =>
+    m.id === matchId ? { ...m, ...normalized } : m,
+  )
+  saveData({ ...data, matches: nextMatches })
+  return { ok: true }
+}
+
 export function requestMatchEdit(
   matchId: string,
   requesterId: string,
@@ -598,7 +628,7 @@ export function autoFinishDueTournaments(): void {
 
 export function addMatch(
   match: Omit<Match, 'id' | 'createdAt'>,
-): { ok: true } | { ok: false; error: string } {
+): { ok: true; matchId: string } | { ok: false; error: string } {
   const data = loadData()
 
   // Set avulso: só grava a partida.
@@ -611,7 +641,7 @@ export function addMatch(
       createdAt: new Date().toISOString(),
     }
     saveData({ ...data, matches: [nextMatch, ...data.matches] })
-    return { ok: true }
+    return { ok: true, matchId: nextMatch.id }
   }
 
   const tournament = data.tournaments.find((t) => t.id === match.tournamentId)
@@ -654,7 +684,7 @@ export function addMatch(
     matches: [nextMatch, ...data.matches],
   })
   tryAutoFinishTournament(match.tournamentId)
-  return { ok: true }
+  return { ok: true, matchId: nextMatch.id }
 }
 
 export function deleteMatch(matchId: string, requesterId: string): AppData {

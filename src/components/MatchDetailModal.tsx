@@ -1,5 +1,6 @@
 import { racketLabel } from '../data/profile'
 import { ballLabel, formatDuration, surfaceLabel } from '../data/ranking'
+import { courtLabel, venueLabel } from '../data/venues'
 import type { Match, Tournament, User } from '../types'
 
 function userName(users: User[], id: string) {
@@ -77,6 +78,16 @@ export function MatchDetailModal({
             <dt>Data</dt>
             <dd>{formatDate(match.date)}</dd>
           </div>
+          <div>
+            <dt>Local</dt>
+            <dd>{venueLabel(match.venue)}</dd>
+          </div>
+          {match.venue === 'ceret' ? (
+            <div>
+              <dt>Quadra</dt>
+              <dd>{courtLabel(match.court)}</dd>
+            </div>
+          ) : null}
           <div>
             <dt>Superfície</dt>
             <dd>

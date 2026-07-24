@@ -71,8 +71,16 @@ interface AppShellProps {
         | { ok: true; tournament: Tournament }
         | { ok: false; error: string }
       >
-  onRecordMatch: (match: Omit<Match, 'id' | 'createdAt'>) => void | Promise<void>
-  onDeleteMatch: (matchId: string) => void | Promise<void>
+  onRecordMatch: (
+    match: Omit<Match, 'id' | 'createdAt'>,
+  ) => Promise<{ ok: true; matchId: string } | { ok: false; error: string }>
+  onDeleteMatch: (
+    matchId: string,
+  ) => Promise<{ ok: true } | { ok: false; error: string } | void>
+  onUpdateMatch: (
+    matchId: string,
+    payload: MatchEditPayload,
+  ) => Promise<{ ok: true } | { ok: false; error: string }>
   onUpdateProfile: (
     input: ProfileUpdateInput,
   ) => Promise<{ ok: true; user?: User } | { ok: false; error: string }>
@@ -99,6 +107,7 @@ export function AppShell({
   onRecordMatch,
   onDeleteMatch,
   onUpdateProfile,
+  onUpdateMatch,
   onRequestMatchEdit,
   onWithdrawMatchEdit,
   onResolveMatchEdit,
@@ -357,6 +366,8 @@ export function AppShell({
             }
             currentUser={currentUser}
             onSubmit={onRecordMatch}
+            onUpdate={onUpdateMatch}
+            onDelete={onDeleteMatch}
           />
         ) : null}
 
@@ -531,6 +542,7 @@ export function AppShell({
               tournaments={tournaments}
               scoreFormat={tournamentFormat}
               onDelete={onDeleteMatch}
+              onUpdateMatch={onUpdateMatch}
               onRequestEdit={onRequestMatchEdit}
               onWithdrawEdit={onWithdrawMatchEdit}
               onResolveEdit={onResolveMatchEdit}
@@ -571,6 +583,7 @@ export function AppShell({
               tournaments={tournaments}
               scoreFormat="classic"
               onDelete={onDeleteMatch}
+              onUpdateMatch={onUpdateMatch}
               onRequestEdit={onRequestMatchEdit}
               onWithdrawEdit={onWithdrawMatchEdit}
               onResolveEdit={onResolveMatchEdit}

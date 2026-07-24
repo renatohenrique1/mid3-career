@@ -1,5 +1,15 @@
 export type Surface = 'hard' | 'clay'
 
+/** Onde o set foi jogado. */
+export type VenueId =
+  | 'ceret'
+  | 'ibirapuera'
+  | 'parque_manchester'
+  | 'parque_da_mooca'
+
+/** Quadra do CERET (só quando venue = ceret). */
+export type CourtId = 'coliseu' | 'anexa' | 'rachadura' | 'saibro'
+
 export type BallBrand =
   | 'inni_tournament'
   | 'inni_clay'
@@ -83,6 +93,10 @@ export interface Match {
   tournamentId: TournamentId | null
   date: string
   surface: Surface
+  /** Local do set (legado sem campo = null) */
+  venue?: VenueId | null
+  /** Quadra do CERET; null nos outros locais */
+  court?: CourtId | null
   playerAId: UserId
   playerBId: UserId
   gamesA: number
@@ -107,6 +121,8 @@ export type MatchEditStatus =
 export type MatchEditPayload = {
   date: string
   surface: Surface
+  venue: VenueId
+  court: CourtId | null
   playerAId: UserId
   playerBId: UserId
   gamesA: number

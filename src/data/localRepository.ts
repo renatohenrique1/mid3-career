@@ -22,6 +22,7 @@ import {
   requestMatchEdit,
   resolveMatchEdit,
   saveSession,
+  updateMatch,
   updateProfile,
   withdrawMatchEdit,
 } from './storage'
@@ -71,6 +72,10 @@ export const localRepository: DataRepository = {
   async deleteMatch(matchId, requesterId) {
     deleteMatch(matchId, requesterId)
     return { ok: true }
+  },
+
+  async updateMatch(matchId, editorId, payload) {
+    return updateMatch(matchId, editorId, payload)
   },
 
   async requestMatchEdit(matchId, requesterId, payload): Promise<MatchEditResult> {

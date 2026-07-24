@@ -5,6 +5,7 @@ import {
   matchWinnerId,
 } from '../data/feed'
 import { ballLabel, formatDuration, formatShortLabel, surfaceLabel } from '../data/ranking'
+import { courtLabel, venueLabel } from '../data/venues'
 import type { AppData, FeedItem, Match, User } from '../types'
 
 type FeedFilter = 'all' | 'casual' | 'tournament' | 'wins'
@@ -257,6 +258,14 @@ function FeedCard({
         <span className={`surface-chip ${match.surface}`}>
           {surfaceLabel(match.surface)}
         </span>
+        {match.venue ? (
+          <span className="feed-context-chip casual">
+            {venueLabel(match.venue)}
+            {match.venue === 'ceret' && match.court
+              ? ` · ${courtLabel(match.court)}`
+              : ''}
+          </span>
+        ) : null}
         {formatDuration(match.durationMinutes) ? (
           <span className="feed-context-chip casual">
             {formatDuration(match.durationMinutes)}
