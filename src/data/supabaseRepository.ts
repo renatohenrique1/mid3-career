@@ -191,17 +191,22 @@ function escapeOrValue(v: string): string {
 async function fetchAllData(): Promise<AppData> {
   const sb = getSupabase()
 
-  const [profilesRes, tournamentsRes, partsRes, matchesRes, matchEditsRes] =
-    await Promise.all([
-      sb.from('profiles').select('*').order('created_at', { ascending: true }),
-      sb.from('tournaments').select('*').order('created_at', { ascending: false }),
-      sb.from('tournament_participants').select('*'),
-      sb.from('matches').select('*').order('created_at', { ascending: false }),
-      sb
-        .from('match_edit_requests')
-        .select('*')
-        .order('created_at', { ascending: false }),
-    ])
+  const [
+    profilesRes,
+    tournamentsRes,
+    partsRes,
+    matchesRes,
+    matchEditsRes,
+  ] = await Promise.all([
+    sb.from('profiles').select('*').order('created_at', { ascending: true }),
+    sb.from('tournaments').select('*').order('created_at', { ascending: false }),
+    sb.from('tournament_participants').select('*'),
+    sb.from('matches').select('*').order('created_at', { ascending: false }),
+    sb
+      .from('match_edit_requests')
+      .select('*')
+      .order('created_at', { ascending: false }),
+  ])
 
   if (profilesRes.error) throw profilesRes.error
   if (tournamentsRes.error) throw tournamentsRes.error
@@ -235,8 +240,8 @@ export const supabaseRepository: DataRepository = {
   mode: 'supabase',
 
   async bootstrap() {
-    const sb = getSupabase()
     await autoFinishDueSupabaseTournaments()
+    const sb = getSupabase()
     const { data: sessionData } = await sb.auth.getSession()
     const userId = sessionData.session?.user.id ?? null
     const data = await fetchAllData()

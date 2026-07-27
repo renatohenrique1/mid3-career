@@ -23,7 +23,11 @@ Se o projeto **já existia**, rode também:
 1. [`supabase/migration_classic_structure.sql`](./supabase/migration_classic_structure.sql)  
 2. [`supabase/migration_profiles_cards.sql`](./supabase/migration_profiles_cards.sql) (nickname, card, raquetes, pedidos de edição de set)  
 3. [`supabase/migration_match_update_rls.sql`](./supabase/migration_match_update_rls.sql) (permite aplicar edição aprovada no set)  
-4. [`supabase/migration_match_venue_court.sql`](./supabase/migration_match_venue_court.sql) (local e quadra do set)
+4. [`supabase/migration_match_venue_court.sql`](./supabase/migration_match_venue_court.sql) (local e quadra do set)  
+
+Se você chegou a rodar as tabelas de Previsões ATP, limpe com:
+
+5. [`supabase/migration_drop_predicts.sql`](./supabase/migration_drop_predicts.sql)
 
 ## 3. Auth (nome + senha)
 
@@ -57,7 +61,7 @@ Na tela de loading deve aparecer `Backend: Supabase`.
 ## 5. Deploy (Vercel / Netlify)
 
 1. Conecte o repo  
-2. Defina as mesmas env vars no painel do host  
+2. Defina as mesmas env vars no painel do host (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)  
 3. No Supabase → **Authentication** → **URL Configuration** → adicione a URL do site em **Site URL** / Redirect  
 
 Guia do iPhone: [`IPHONE.md`](./IPHONE.md)

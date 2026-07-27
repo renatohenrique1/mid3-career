@@ -56,20 +56,13 @@ export function Feed({
   const feed = useMemo(() => buildFeed(data), [data])
   const visible = feed.filter((item) => matchesFilter(item, filter))
 
-  const casualCount = feed.filter((i) => i.kind === 'casual_set').length
-  const tournamentSetCount = feed.filter(
-    (i) => i.kind === 'tournament_set',
-  ).length
-  const winCount = feed.filter((i) => i.kind === 'tournament_won').length
-
   return (
     <section className="feed-home">
       <header className="sets-hero">
-        <p className="tourney-kicker">Atividade</p>
+        <p className="tourney-kicker">Linha do tempo</p>
         <h2>Feed</h2>
         <p>
-          Sets avulsos, partidas de torneio e títulos conquistados por todo
-          mundo.
+          O que rolou recentemente: sets, partidas de torneio e títulos.
         </p>
         {onRegisterSet ? (
           <button
@@ -81,21 +74,6 @@ export function Feed({
           </button>
         ) : null}
       </header>
-
-      <div className="tourney-stats" aria-label="Resumo do feed">
-        <div>
-          <strong>{casualCount}</strong>
-          <span>avulsos</span>
-        </div>
-        <div>
-          <strong>{tournamentSetCount}</strong>
-          <span>em torneio</span>
-        </div>
-        <div>
-          <strong>{winCount}</strong>
-          <span>títulos</span>
-        </div>
-      </div>
 
       <div className="feed-filters feed-filters-4" role="tablist" aria-label="Filtro do feed">
         <button

@@ -64,7 +64,6 @@ export interface DataRepository {
   ): Promise<TournamentResult>
   addMatch(match: Omit<Match, 'id' | 'createdAt'>): Promise<AddMatchResult>
   deleteMatch(matchId: string, requesterId: string): Promise<MutationOk>
-  /** Participante atualiza set na hora (local, superfície, etc.). */
   updateMatch(
     matchId: string,
     editorId: string,
@@ -84,6 +83,5 @@ export interface DataRepository {
     resolverId: string,
     decision: 'approved' | 'rejected',
   ): Promise<MutationOk>
-  /** Recarrega snapshot completo (após mutação ou realtime). */
   fetchAll(): Promise<AppData>
 }

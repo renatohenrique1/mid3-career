@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { racketLabel } from '../data/profile'
 import { ballLabel, formatDuration, surfaceLabel } from '../data/ranking'
 import { courtLabel, venueLabel } from '../data/venues'
@@ -35,7 +37,23 @@ export function MatchDetailModal({
     : null
   const recordedBy = userName(users, match.recordedById)
 
-  return (
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return createPortal(
     <div
       className="app-modal-overlay"
       role="presentation"
@@ -122,6 +140,7 @@ export function MatchDetailModal({
           </div>
         </dl>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

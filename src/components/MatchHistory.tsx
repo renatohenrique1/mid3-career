@@ -44,6 +44,7 @@ interface MatchHistoryProps {
   tournaments?: Tournament[]
   /** Formato do torneio ou classic para validar placar */
   scoreFormat?: import('../types').TournamentFormat
+  title?: string
   onDelete: (matchId: string) => void
   onUpdateMatch?: (
     matchId: string,
@@ -78,6 +79,7 @@ export function MatchHistory({
   editRequests = [],
   tournaments = [],
   scoreFormat = 'classic',
+  title = 'Histórico',
   onDelete,
   onUpdateMatch,
   onRequestEdit,
@@ -101,7 +103,7 @@ export function MatchHistory({
   return (
     <section className="panel history-panel">
       <div className="panel-head">
-        <h2>Histórico</h2>
+        <h2>{title}</h2>
         <p>
           {matches.length} set{matches.length === 1 ? '' : 's'}
         </p>

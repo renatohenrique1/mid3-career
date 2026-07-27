@@ -32,8 +32,8 @@ export const localRepository: DataRepository = {
 
   async bootstrap() {
     autoFinishDueTournaments()
-    const data = loadData()
     const session = loadSession()
+    const data = loadData()
     return { data, userId: session?.userId ?? null }
   },
 

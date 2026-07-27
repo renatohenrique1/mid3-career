@@ -30,6 +30,7 @@ import {
   type PendingApprovalItem,
 } from './PendingEditsModal'
 import { PlayerAvatar } from './PlayerAvatar'
+import { ProfileModal } from './ProfileModal'
 import { ProfilePage } from './ProfilePage'
 import { Ranking } from './Ranking'
 import { Stats } from './Stats'
@@ -121,11 +122,25 @@ export function AppShell({
   const [detailMatchId, setDetailMatchId] = useState<string | null>(null)
   const [pendingModalOpen, setPendingModalOpen] = useState(false)
   const [pendingModalDismissed, setPendingModalDismissed] = useState(false)
+  const [historyFilter, setHistoryFilter] = useState<
+    'all' | 'casual' | 'tournament'
+  >('all')
+  const [profileModalUserId, setProfileModalUserId] = useState<string | null>(
+    null,
+  )
 
   const casualMatches = useMemo(
     () => matches.filter((m) => !m.tournamentId),
     [matches],
   )
+
+  const historyMatches = useMemo(() => {
+    if (historyFilter === 'casual') return casualMatches
+    if (historyFilter === 'tournament') {
+      return matches.filter((m) => Boolean(m.tournamentId))
+    }
+    return matches
+  }, [historyFilter, casualMatches, matches])
 
   const pendingApprovals = useMemo((): PendingApprovalItem[] => {
     const items: PendingApprovalItem[] = []
@@ -198,21 +213,6 @@ export function AppShell({
 
   const leaderName = tournamentRanking.find((r) => r.played > 0)?.name
 
-  const casualPlayers = useMemo(() => {
-    const ids = new Set<string>()
-    for (const match of casualMatches) {
-      ids.add(match.playerAId)
-      ids.add(match.playerBId)
-    }
-    ids.add(currentUser.id)
-    return users.filter((u) => ids.has(u.id))
-  }, [casualMatches, users, currentUser.id])
-
-  const casualRanking = useMemo(
-    () => computeRanking(casualPlayers, casualMatches, 'classic'),
-    [casualPlayers, casualMatches],
-  )
-
   const isParticipant = Boolean(
     activeTournament?.participantIds.includes(currentUser.id),
   )
@@ -255,6 +255,10 @@ export function AppShell({
     setActiveTournamentId(null)
   }
 
+  function openProfileModal(userId: string) {
+    setProfileModalUserId(userId)
+  }
+
   function openTournament(id: string) {
     setRegisterOpen(false)
     setArea('tournaments')
@@ -270,7 +274,7 @@ export function AppShell({
   }
 
   return (
-    <div className={`shell${registerOpen ? '' : ' shell-with-fab'}`}>
+    <div className="shell">
       <div className="shell-chrome">
         <header className="topbar frame">
           <div className="topbar-brand">
@@ -329,11 +333,11 @@ export function AppShell({
             </button>
             <button
               type="button"
-              className={area === 'sets' ? 'active' : ''}
-              onClick={() => switchArea('sets')}
+              className={area === 'history' ? 'active' : ''}
+              onClick={() => switchArea('history')}
             >
-              Sets
-              <span>{casualMatches.length}</span>
+              Histórico
+              <span>{matches.length}</span>
             </button>
             <button
               type="button"
@@ -402,7 +406,11 @@ export function AppShell({
         ) : null}
 
         {!registerOpen && area === 'ranking' && !activeTournament ? (
-          <CareerRanking data={data} currentUser={currentUser} />
+          <CareerRanking
+            data={data}
+            currentUser={currentUser}
+            onOpenProfile={openProfileModal}
+          />
         ) : null}
 
         {!registerOpen && area === 'stats' && !activeTournament ? (
@@ -550,38 +558,53 @@ export function AppShell({
           </>
         ) : null}
 
-        {!registerOpen && area === 'sets' && !activeTournament ? (
+        {!registerOpen && area === 'history' && !activeTournament ? (
           <>
             <header className="sets-hero">
-              <p className="tourney-kicker">Fora de torneio</p>
-              <h2>Sets avulsos</h2>
+              <p className="journey-kicker">Gerenciar</p>
+              <h2>Histórico</h2>
               <p>
-                Registre partidas soltas sem criar torneio. O ranking aqui conta
-                só esses sets.
+                Edite ou apague sets. O Feed é a linha do tempo; o Ranking
+                concentra a classificação.
               </p>
-              <button
-                type="button"
-                className="btn btn-primary register-inline-cta"
-                onClick={openRegister}
-              >
-                Registrar set
-              </button>
             </header>
 
-            <Ranking
-              ranking={casualRanking}
-              currentUserId={currentUser.id}
-              emptyText="Ainda sem sets avulsos."
-              pointsHint={rankingHint('classic')}
-              onRegister={openRegister}
-            />
+            <div
+              className="feed-filters"
+              role="tablist"
+              aria-label="Filtro do histórico"
+            >
+              <button
+                type="button"
+                className={historyFilter === 'all' ? 'active' : ''}
+                onClick={() => setHistoryFilter('all')}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                className={historyFilter === 'casual' ? 'active' : ''}
+                onClick={() => setHistoryFilter('casual')}
+              >
+                Avulsos
+              </button>
+              <button
+                type="button"
+                className={historyFilter === 'tournament' ? 'active' : ''}
+                onClick={() => setHistoryFilter('tournament')}
+              >
+                Torneio
+              </button>
+            </div>
+
             <MatchHistory
-              matches={casualMatches}
+              matches={historyMatches}
               users={users}
               currentUserId={currentUser.id}
               editRequests={matchEditRequests}
               tournaments={tournaments}
               scoreFormat="classic"
+              title="Partidas"
               onDelete={onDeleteMatch}
               onUpdateMatch={onUpdateMatch}
               onRequestEdit={onRequestMatchEdit}
@@ -609,6 +632,14 @@ export function AppShell({
         />
       ) : null}
 
+      {profileModalUserId ? (
+        <ProfileModal
+          data={data}
+          userId={profileModalUserId}
+          onClose={() => setProfileModalUserId(null)}
+        />
+      ) : null}
+
       {pendingModalOpen && pendingApprovals.length > 0 ? (
         <PendingEditsModal
           items={pendingApprovals}
@@ -619,26 +650,6 @@ export function AppShell({
             setPendingModalDismissed(true)
           }}
         />
-      ) : null}
-
-      {!registerOpen ? (
-        <button
-          type="button"
-          className="register-fab"
-          onClick={openRegister}
-          aria-label={
-            canRegisterInTournament
-              ? `Registrar set no torneio ${activeTournament?.name ?? ''}`
-              : 'Registrar set avulso'
-          }
-        >
-          <span className="register-fab-plus" aria-hidden>
-            +
-          </span>
-          <span className="register-fab-label">
-            {canRegisterInTournament ? 'Registrar no torneio' : 'Registrar set'}
-          </span>
-        </button>
       ) : null}
     </div>
   )

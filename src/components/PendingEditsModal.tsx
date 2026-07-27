@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { describeMatchEditChanges } from '../data/matchEdits'
 import { surfaceLabel } from '../data/ranking'
 import { venueLabel } from '../data/venues'
@@ -33,9 +35,18 @@ export function PendingEditsModal({
   onResolve,
   onClose,
 }: PendingEditsModalProps) {
+  useEffect(() => {
+    if (items.length === 0) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [items.length])
+
   if (items.length === 0) return null
 
-  return (
+  return createPortal(
     <div
       className="app-modal-overlay"
       role="presentation"
@@ -123,6 +134,7 @@ export function PendingEditsModal({
           })}
         </ul>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

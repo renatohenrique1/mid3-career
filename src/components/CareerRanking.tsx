@@ -4,13 +4,13 @@ import {
   computeH2H,
   formatDiff,
   h2HForPlayer,
-  leadersFromCareer,
 } from '../data/career'
-import type { AppData, CareerStats, User } from '../types'
+import type { AppData, User } from '../types'
 
 interface CareerRankingProps {
   data: AppData
   currentUser: User
+  onOpenProfile?: (userId: string) => void
 }
 
 function initials(name: string) {
@@ -25,16 +25,17 @@ function userName(users: User[], id: string) {
   return users.find((u) => u.id === id)?.name ?? '?'
 }
 
-export function CareerRanking({ data, currentUser }: CareerRankingProps) {
+export function CareerRanking({
+  data,
+  currentUser,
+  onOpenProfile,
+}: CareerRankingProps) {
   const stats = useMemo(() => computeCareerStats(data), [data])
   const h2h = useMemo(
     () => computeH2H(data.users, data.matches),
     [data.users, data.matches],
   )
-  const leaders = useMemo(() => leadersFromCareer(stats), [stats])
-  const [selectedId, setSelectedId] = useState<string | null>(
-    currentUser.id,
-  )
+  const [selectedId, setSelectedId] = useState<string | null>(currentUser.id)
 
   const selected =
     stats.find((s) => s.playerId === selectedId) ?? stats[0] ?? null
@@ -46,47 +47,10 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
 
   return (
     <section className="career-home">
-      <header className="sets-hero">
-        <p className="tourney-kicker">Geral</p>
+      <header className="sets-hero sets-hero-compact">
         <h2>Ranking</h2>
-        <p>
-          Vitórias em sets, títulos de torneio, saldo de games e o H2H entre
-          todos.
-        </p>
+        <p>Classificação por pontos (3 + diferença de games por set vencido).</p>
       </header>
-
-      <div className="leader-grid">
-        <LeaderCard
-          label="Mais vitórias"
-          empty="Sem sets ainda"
-          player={leaders.mostWins}
-          value={leaders.mostWins ? `${leaders.mostWins.setWins}V` : null}
-          accent="orange"
-        />
-        <LeaderCard
-          label="Mais títulos"
-          empty="Nenhum torneio encerrado"
-          player={leaders.mostTitles}
-          value={leaders.mostTitles ? `${leaders.mostTitles.titles}` : null}
-          accent="gold"
-        />
-        <LeaderCard
-          label="Maior saldo"
-          empty="Sem saldo ainda"
-          player={leaders.bestDiff}
-          value={
-            leaders.bestDiff ? formatDiff(leaders.bestDiff.gameDiff) : null
-          }
-          accent="gray"
-        />
-      </div>
-
-      <div className="tourney-section-head">
-        <h3>Jogadores</h3>
-        <span>
-          {stats.length} conta{stats.length === 1 ? '' : 's'}
-        </span>
-      </div>
 
       {stats.length === 0 ? (
         <div className="panel">
@@ -97,33 +61,56 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
           <ul className="career-mobile-list">
             {stats.map((player, index) => (
               <li key={player.playerId}>
-                <button
-                  type="button"
+                <div
                   className={`career-mobile-row${
                     selected?.playerId === player.playerId ? ' is-selected' : ''
                   }${player.playerId === currentUser.id ? ' is-you' : ''}`}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelectedId(player.playerId)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setSelectedId(player.playerId)
+                    }
+                  }}
                 >
                   <span className="career-mobile-rank">{index + 1}</span>
-                  <span className="career-avatar sm" aria-hidden>
+                  <button
+                    type="button"
+                    className="career-avatar sm career-avatar-link"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenProfile?.(player.playerId)
+                    }}
+                    aria-label={`Ver perfil de ${player.name}`}
+                  >
                     {initials(player.name)}
-                  </span>
+                  </button>
                   <span className="career-mobile-main">
-                    <strong>
+                    <button
+                      type="button"
+                      className="career-name-link"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onOpenProfile?.(player.playerId)
+                      }}
+                    >
                       {player.name}
                       {player.playerId === currentUser.id ? (
                         <span className="you-tag"> você</span>
                       ) : null}
-                    </strong>
+                    </button>
                     <span>
                       {player.setWins}V · {player.setLosses}D ·{' '}
                       {player.titles} tít. · {formatDiff(player.gameDiff)}
                     </span>
                   </span>
-                  <span className="career-mobile-pct">
-                    {Math.round(player.winRate * 100)}%
+                  <span className="career-mobile-pts">
+                    <strong>{player.points}</strong>
+                    <span>pts</span>
                   </span>
-                </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -134,6 +121,7 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
                 <tr>
                   <th>#</th>
                   <th>Jogador</th>
+                  <th>Pts</th>
                   <th>V</th>
                   <th>D</th>
                   <th>Sets</th>
@@ -162,18 +150,28 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
                   >
                     <td className="num">{index + 1}</td>
                     <td className="player-cell">
-                      <span className="career-avatar sm" aria-hidden>
-                        {initials(player.name)}
-                      </span>
-                      <span>
-                        <strong>
-                          {player.name}
-                          {player.playerId === currentUser.id ? (
-                            <span className="you-tag"> você</span>
-                          ) : null}
-                        </strong>
-                      </span>
+                      <button
+                        type="button"
+                        className="career-player-open"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onOpenProfile?.(player.playerId)
+                        }}
+                      >
+                        <span className="career-avatar sm" aria-hidden>
+                          {initials(player.name)}
+                        </span>
+                        <span>
+                          <strong>
+                            {player.name}
+                            {player.playerId === currentUser.id ? (
+                              <span className="you-tag"> você</span>
+                            ) : null}
+                          </strong>
+                        </span>
+                      </button>
                     </td>
+                    <td className="num pts-cell">{player.points}</td>
                     <td className="num">{player.setWins}</td>
                     <td className="num">{player.setLosses}</td>
                     <td className="num">{player.setPlayed}</td>
@@ -213,7 +211,10 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
                       : 'desvantagem'
 
                 return (
-                  <li key={`${row.playerAId}-${row.playerBId}`} className="h2h-row">
+                  <li
+                    key={`${row.playerAId}-${row.playerBId}`}
+                    className="h2h-row"
+                  >
                     <div className="h2h-names">
                       <strong>{opponent}</strong>
                       <span className={`h2h-lead ${lead}`}>
@@ -255,29 +256,13 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
                   className="h2h-row h2h-pair"
                 >
                   <div className="h2h-pair-grid">
-                    <span
-                      className={
-                        row.winsA > row.winsB
-                          ? 'winner'
-                          : row.played === 0
-                            ? ''
-                            : ''
-                      }
-                    >
+                    <span className={row.winsA > row.winsB ? 'winner' : ''}>
                       {nameA}
                     </span>
                     <strong>
                       {row.winsA}–{row.winsB}
                     </strong>
-                    <span
-                      className={
-                        row.winsB > row.winsA
-                          ? 'winner'
-                          : row.played === 0
-                            ? ''
-                            : ''
-                      }
-                    >
+                    <span className={row.winsB > row.winsA ? 'winner' : ''}>
                       {nameB}
                     </span>
                   </div>
@@ -293,33 +278,5 @@ export function CareerRanking({ data, currentUser }: CareerRankingProps) {
         )}
       </section>
     </section>
-  )
-}
-
-function LeaderCard({
-  label,
-  empty,
-  player,
-  value,
-  accent,
-}: {
-  label: string
-  empty: string
-  player: CareerStats | null
-  value: string | null
-  accent: 'orange' | 'gold' | 'gray'
-}) {
-  return (
-    <article className={`leader-card panel accent-${accent}`}>
-      <span className="leader-label">{label}</span>
-      {player && value ? (
-        <>
-          <strong className="leader-value">{value}</strong>
-          <span className="leader-name">{player.name}</span>
-        </>
-      ) : (
-        <p className="empty">{empty}</p>
-      )}
-    </article>
   )
 }

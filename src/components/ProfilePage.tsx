@@ -23,7 +23,6 @@ import { AvatarPicker, PlayerAvatar } from './PlayerAvatar'
 interface ProfilePageProps {
   data: AppData
   currentUser: User
-  viewingUserId?: string
   onUpdateProfile: (
     input: ProfileUpdateInput,
   ) => Promise<{ ok: true; user?: User } | { ok: false; error: string }>
@@ -32,12 +31,9 @@ interface ProfilePageProps {
 export function ProfilePage({
   data,
   currentUser,
-  viewingUserId,
   onUpdateProfile,
 }: ProfilePageProps) {
-  const userId = viewingUserId ?? currentUser.id
-  const user = data.users.find((u) => u.id === userId) ?? currentUser
-  const isOwn = user.id === currentUser.id
+  const user = currentUser
 
   const career = useMemo(() => {
     const all = computeCareerStats(data)
@@ -138,7 +134,6 @@ export function ProfilePage({
   return (
     <section className="profile-page">
       <header className="detail-hero">
-        <p className="tourney-kicker">{isOwn ? 'Seu card' : 'Jogador'}</p>
         <h2>Perfil</h2>
       </header>
 
@@ -186,7 +181,7 @@ export function ProfilePage({
           </div>
         </dl>
 
-        {isOwn && !editing ? (
+        {!editing ? (
           <button
             type="button"
             className="btn btn-primary"
@@ -197,7 +192,7 @@ export function ProfilePage({
         ) : null}
       </article>
 
-      {isOwn && editing ? (
+      {editing ? (
         <form className="panel profile-edit" onSubmit={handleSave}>
           <h3>Editar</h3>
 

@@ -87,6 +87,12 @@ export function TournamentList({
     return map
   }, [matches])
 
+  const tournamentSetCount = useMemo(() => {
+    let total = 0
+    for (const count of matchCountByTournament.values()) total += count
+    return total
+  }, [matchCountByTournament])
+
   const myTournaments = tournaments.filter((t) =>
     t.participantIds.includes(currentUser.id),
   ).length
@@ -148,7 +154,7 @@ export function TournamentList({
           <span>torneios</span>
         </div>
         <div>
-          <strong>{matches.length}</strong>
+          <strong>{tournamentSetCount}</strong>
           <span>sets</span>
         </div>
         <div>

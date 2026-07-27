@@ -7,6 +7,7 @@ import type {
   User,
   UserId,
 } from '../types'
+import { pointsForWin } from './ranking'
 
 function pairKey(a: UserId, b: UserId) {
   return a < b ? `${a}::${b}` : `${b}::${a}`
@@ -24,6 +25,7 @@ export function computeCareerStats(data: AppData): CareerStats[] {
       setLosses: 0,
       setPlayed: 0,
       titles: 0,
+      points: 0,
       gamesFor: 0,
       gamesAgainst: 0,
       gameDiff: 0,
@@ -43,11 +45,14 @@ export function computeCareerStats(data: AppData): CareerStats[] {
     b.gamesFor += match.gamesB
     b.gamesAgainst += match.gamesA
 
+    const pts = pointsForWin('classic', match.gamesA, match.gamesB)
     if (match.gamesA > match.gamesB) {
       a.setWins += 1
+      a.points += pts
       b.setLosses += 1
     } else {
       b.setWins += 1
+      b.points += pts
       a.setLosses += 1
     }
   }
@@ -65,6 +70,7 @@ export function computeCareerStats(data: AppData): CareerStats[] {
   }))
 
   list.sort((x, y) => {
+    if (y.points !== x.points) return y.points - x.points
     if (y.setWins !== x.setWins) return y.setWins - x.setWins
     if (y.titles !== x.titles) return y.titles - x.titles
     if (y.gameDiff !== x.gameDiff) return y.gameDiff - x.gameDiff

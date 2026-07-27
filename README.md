@@ -5,7 +5,7 @@ App para registrar sets de tênis em torneios, com ranking e pontuação.
 ## Fluxo
 
 1. **Entrar / Criar conta** (nome + senha)
-2. Áreas: **Feed · Ranking · Stats · Torneios · Sets**
+2. Áreas: **Feed · Ranking · Stats · Torneios · Histórico · Perfil**
 3. Torneios têm **formato** (clássico / TB / FH / BH / 15–40) e pontuação própria
 4. Encerrar torneio define o campeão pelo ranking e publica no feed
 

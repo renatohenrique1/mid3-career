@@ -172,7 +172,7 @@ export type AppArea =
   | 'ranking'
   | 'stats'
   | 'tournaments'
-  | 'sets'
+  | 'history'
   | 'profile'
 
 export interface CareerStats {
@@ -183,6 +183,8 @@ export interface CareerStats {
   setLosses: number
   setPlayed: number
   titles: number
+  /** Pontuação clássica: 3 + diferença de games por set vencido. */
+  points: number
   gamesFor: number
   gamesAgainst: number
   gameDiff: number
