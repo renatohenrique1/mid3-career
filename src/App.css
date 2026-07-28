@@ -3004,12 +3004,12 @@ option {
   }
 
   .area-tabs-5::-webkit-scrollbar,
-  .area-tabs-6::-webkit-scrollbar::-webkit-scrollbar {
+  .area-tabs-6::-webkit-scrollbar {
     display: none;
   }
 
   .area-tabs-5 button,
-  .area-tabs-6 button button {
+  .area-tabs-6 button {
     flex: 0 0 auto;
     min-width: 4.4rem;
     padding: 0.45rem 0.35rem;
