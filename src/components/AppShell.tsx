@@ -278,7 +278,13 @@ export function AppShell({
       <div className="shell-chrome">
         <header className="topbar frame">
           <div className="topbar-brand">
-            <span className="brand-mark">MID3</span>
+            <img
+              className="brand-logo brand-logo-topbar"
+              src="/logo-mid3.png"
+              alt="MID3"
+              width={40}
+              height={40}
+            />
             <span className="brand-sub">Career</span>
           </div>
           <div className="topbar-user">

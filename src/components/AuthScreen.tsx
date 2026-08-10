@@ -57,7 +57,13 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   return (
     <div className="auth-screen">
       <header className="hero hero-auth">
-        <p className="brand">MID3</p>
+        <img
+          className="brand-logo brand-logo-hero"
+          src="/logo-mid3.png"
+          alt="MID3"
+          width={180}
+          height={180}
+        />
         <h1>Career</h1>
         <p className="tagline">
           Ranking, torneios e sets avulsos — tudo claro, no mesmo lugar.

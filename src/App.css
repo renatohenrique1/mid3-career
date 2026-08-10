@@ -111,14 +111,28 @@ button {
   padding-bottom: 1rem;
 }
 
-.brand {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(2.8rem, 10vw, 4.2rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 0.95;
-  color: var(--gold);
+.brand-logo {
+  display: block;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.brand-logo-hero {
+  width: clamp(7.5rem, 28vw, 11rem);
+  height: auto;
+  aspect-ratio: 1;
+  margin: 0 0 0.35rem;
+}
+
+.brand-logo-boot {
+  width: 7.5rem;
+  height: 7.5rem;
+}
+
+.brand-logo-topbar {
+  width: 2.35rem;
+  height: 2.35rem;
+  flex-shrink: 0;
 }
 
 .hero h1 {
@@ -149,15 +163,6 @@ button {
   gap: 0.45rem;
   padding: 2rem;
   text-align: center;
-}
-
-.boot-screen .brand {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--accent);
 }
 
 .boot-screen p {
@@ -270,16 +275,8 @@ button {
 
 .topbar-brand {
   display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
-}
-
-.brand-mark {
-  font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--gold);
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .brand-sub {

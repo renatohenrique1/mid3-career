@@ -31,7 +31,13 @@ export default function App() {
       <div className="app">
         <div className="atmosphere" aria-hidden />
         <div className="boot-screen">
-          <p className="brand">MID3</p>
+          <img
+            className="brand-logo brand-logo-boot"
+            src="/logo-mid3.png"
+            alt="MID3"
+            width={160}
+            height={160}
+          />
           <p>Carregando…</p>
           <p className="boot-mode">
             Backend: {backendMode === 'supabase' ? 'Supabase' : 'local'}
