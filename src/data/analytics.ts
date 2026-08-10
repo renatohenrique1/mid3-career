@@ -1,20 +1,42 @@
-import type { AppData, Match, Surface } from '../types'
-import { computeCareerStats, computeH2H, formatDiff } from './career'
-import { matchWinnerId } from './feed'
+import type { AppData, Match } from '../types'
+import { computeCareerStats, computeH2H } from './career'
+import { pointsForWin } from './ranking'
+import { venueLabel } from './venues'
 
-export interface InsightCard {
+export interface ChartSlice {
   id: string
-  topic: string
-  headline: string
-  detail: string
-  accent: 'orange' | 'gold' | 'gray'
+  label: string
+  value: number
+  share: number
+  color?: string
 }
 
-export interface SurfaceSplit {
-  surface: Surface
-  label: string
+export interface PlayerBar {
+  playerId: string
+  name: string
+  wins: number
+  losses: number
+  points: number
+}
+
+export interface RivalryChart {
+  playerAName: string
+  playerBName: string
+  winsA: number
+  winsB: number
   played: number
-  share: number
+}
+
+export interface RankingSeries {
+  playerId: string
+  name: string
+  color: string
+  values: number[]
+}
+
+export interface RankingTimeline {
+  dates: string[]
+  series: RankingSeries[]
 }
 
 export interface AnalyticsSummary {
@@ -24,9 +46,22 @@ export interface AnalyticsSummary {
   avgGamesPerSet: number
   tightSets: number
   blowouts: number
-  surfaces: SurfaceSplit[]
-  insights: InsightCard[]
+  surfaces: ChartSlice[]
+  scoreLines: ChartSlice[]
+  venues: ChartSlice[]
+  players: PlayerBar[]
+  rivalry: RivalryChart | null
+  rankingTimeline: RankingTimeline
 }
+
+const PLAYER_COLORS = [
+  'var(--accent)',
+  'var(--gold)',
+  '#38bdf8',
+  '#a78bfa',
+  '#34d399',
+  '#fb7185',
+]
 
 function margin(match: Match) {
   return Math.abs(match.gamesA - match.gamesB)
@@ -46,6 +81,86 @@ function isBlowout(match: Match) {
   return Math.max(match.gamesA, match.gamesB) === 6 && margin(match) >= 4
 }
 
+function scoreLineKey(match: Match) {
+  const high = Math.max(match.gamesA, match.gamesB)
+  const low = Math.min(match.gamesA, match.gamesB)
+  return `${high}–${low}`
+}
+
+function toSlices(
+  rows: Array<{ id: string; label: string; value: number; color?: string }>,
+  total: number,
+): ChartSlice[] {
+  return rows.map((row) => ({
+    ...row,
+    share: total === 0 ? 0 : row.value / total,
+  }))
+}
+
+function formatShortDate(iso: string) {
+  const [, m, d] = iso.split('-')
+  if (!m || !d) return iso
+  return `${d}/${m}`
+}
+
+function buildRankingTimeline(data: AppData): RankingTimeline {
+  const sorted = [...data.matches].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    return a.createdAt.localeCompare(b.createdAt)
+  })
+
+  if (sorted.length === 0) {
+    return { dates: [], series: [] }
+  }
+
+  const points = new Map<string, number>()
+  for (const user of data.users) points.set(user.id, 0)
+
+  const dates: string[] = []
+  const snapshots: number[][] = []
+  const playerIds = data.users.map((u) => u.id)
+
+  let day = sorted[0].date
+  const flushDay = () => {
+    dates.push(day)
+    snapshots.push(playerIds.map((id) => points.get(id) ?? 0))
+  }
+
+  for (const match of sorted) {
+    if (match.date !== day) {
+      flushDay()
+      day = match.date
+    }
+    const pts = pointsForWin('classic', match.gamesA, match.gamesB)
+    if (match.gamesA > match.gamesB) {
+      points.set(match.playerAId, (points.get(match.playerAId) ?? 0) + pts)
+    } else {
+      points.set(match.playerBId, (points.get(match.playerBId) ?? 0) + pts)
+    }
+  }
+  flushDay()
+
+  const activeIds = playerIds.filter((_, index) =>
+    snapshots.some((snap) => (snap[index] ?? 0) > 0),
+  )
+
+  const series: RankingSeries[] = activeIds.map((playerId, i) => {
+    const user = data.users.find((u) => u.id === playerId)
+    const idx = playerIds.indexOf(playerId)
+    return {
+      playerId,
+      name: user?.name ?? '?',
+      color: PLAYER_COLORS[i % PLAYER_COLORS.length],
+      values: snapshots.map((snap) => snap[idx] ?? 0),
+    }
+  })
+
+  return {
+    dates: dates.map(formatShortDate),
+    series,
+  }
+}
+
 export function computeAnalytics(data: AppData): AnalyticsSummary {
   const { matches } = data
   const totalSets = matches.length
@@ -62,31 +177,84 @@ export function computeAnalytics(data: AppData): AnalyticsSummary {
 
   const hard = matches.filter((m) => m.surface === 'hard').length
   const clay = matches.filter((m) => m.surface === 'clay').length
-  const surfaces: SurfaceSplit[] = [
-    {
-      surface: 'hard',
-      label: 'Rápida',
-      played: hard,
-      share: totalSets === 0 ? 0 : hard / totalSets,
-    },
-    {
-      surface: 'clay',
-      label: 'Saibro',
-      played: clay,
-      share: totalSets === 0 ? 0 : clay / totalSets,
-    },
-  ]
-
-  const insights = buildInsights(data, {
+  const surfaces = toSlices(
+    [
+      { id: 'hard', label: 'Rápida', value: hard, color: 'var(--hard)' },
+      { id: 'clay', label: 'Saibro', value: clay, color: 'var(--accent)' },
+    ],
     totalSets,
-    casualSets,
-    tournamentSets,
-    avgGamesPerSet,
-    tightSets,
-    blowouts,
-    hard,
-    clay,
-  })
+  )
+
+  const scoreCounts = new Map<string, number>()
+  for (const match of matches) {
+    const key = scoreLineKey(match)
+    scoreCounts.set(key, (scoreCounts.get(key) ?? 0) + 1)
+  }
+  const scoreLines = toSlices(
+    [...scoreCounts.entries()]
+      .sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1]
+        return a[0].localeCompare(b[0])
+      })
+      .map(([label, value]) => ({
+        id: label,
+        label,
+        value,
+        color: 'var(--accent)',
+      })),
+    totalSets,
+  )
+
+  const venueCounts = new Map<string, number>()
+  for (const match of matches) {
+    const label = venueLabel(match.venue)
+    if (label === '—') continue
+    venueCounts.set(label, (venueCounts.get(label) ?? 0) + 1)
+  }
+  const venueTotal = [...venueCounts.values()].reduce((s, n) => s + n, 0)
+  const venues = toSlices(
+    [...venueCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value]) => ({
+        id: label,
+        label,
+        value,
+        color: 'var(--gold)',
+      })),
+    venueTotal,
+  )
+
+  const career = computeCareerStats(data)
+  const players: PlayerBar[] = career
+    .filter((p) => p.setPlayed > 0)
+    .map((p) => ({
+      playerId: p.playerId,
+      name: p.name,
+      wins: p.setWins,
+      losses: p.setLosses,
+      points: p.points,
+    }))
+
+  const h2h = computeH2H(data.users, data.matches)
+  const hottest = [...h2h]
+    .filter((r) => r.played > 0)
+    .sort((a, b) => {
+      if (b.played !== a.played) return b.played - a.played
+      return Math.min(b.winsA, b.winsB) - Math.min(a.winsA, a.winsB)
+    })[0]
+
+  const nameOf = (id: string) =>
+    data.users.find((u) => u.id === id)?.name ?? '?'
+
+  const rivalry: RivalryChart | null = hottest
+    ? {
+        playerAName: nameOf(hottest.playerAId),
+        playerBName: nameOf(hottest.playerBId),
+        winsA: hottest.winsA,
+        winsB: hottest.winsB,
+        played: hottest.played,
+      }
+    : null
 
   return {
     totalSets,
@@ -96,213 +264,10 @@ export function computeAnalytics(data: AppData): AnalyticsSummary {
     tightSets,
     blowouts,
     surfaces,
-    insights,
+    scoreLines,
+    venues,
+    players,
+    rivalry,
+    rankingTimeline: buildRankingTimeline(data),
   }
-}
-
-function buildInsights(
-  data: AppData,
-  meta: {
-    totalSets: number
-    casualSets: number
-    tournamentSets: number
-    avgGamesPerSet: number
-    tightSets: number
-    blowouts: number
-    hard: number
-    clay: number
-  },
-): InsightCard[] {
-  const insights: InsightCard[] = []
-  const stats = computeCareerStats(data)
-  const h2h = computeH2H(data.users, data.matches)
-  const nameOf = (id: string) =>
-    data.users.find((u) => u.id === id)?.name ?? '?'
-
-  if (meta.totalSets === 0) {
-    return [
-      {
-        id: 'empty',
-        topic: 'Amostra',
-        headline: 'Ainda sem dados para analisar',
-        detail:
-          'Registre sets avulsos ou de torneio para liberar leituras de forma, superfície e rivalidade.',
-        accent: 'gray',
-      },
-    ]
-  }
-
-  // Theme: competitive intensity
-  const tightRate = meta.tightSets / meta.totalSets
-  const blowoutRate = meta.blowouts / meta.totalSets
-  if (tightRate >= 0.4) {
-    insights.push({
-      id: 'intensity-tight',
-      topic: 'Intensidade',
-      headline: 'Os sets estão apertados',
-      detail: `${meta.tightSets} de ${meta.totalSets} sets terminaram em placares fechados (6–4, 7–5 ou 7–6). O grupo joga equilibrado.`,
-      accent: 'orange',
-    })
-  } else if (blowoutRate >= 0.35) {
-    insights.push({
-      id: 'intensity-blowout',
-      topic: 'Intensidade',
-      headline: 'Muitas goleadas no placar',
-      detail: `${meta.blowouts} sets com diferença grande (6–0 a 6–2). Há um desnível claro entre alguns jogadores.`,
-      accent: 'orange',
-    })
-  } else {
-    insights.push({
-      id: 'intensity-mix',
-      topic: 'Intensidade',
-      headline: 'Mistura de finais apertadas e folgadas',
-      detail: `Média de ${meta.avgGamesPerSet.toFixed(1)} games por set · ${meta.tightSets} apertados · ${meta.blowouts} goleadas.`,
-      accent: 'orange',
-    })
-  }
-
-  // Theme: surface preference
-  if (meta.hard + meta.clay > 0) {
-    const favorite = meta.hard >= meta.clay ? 'rápida' : 'saibro'
-    const favoriteCount = Math.max(meta.hard, meta.clay)
-    const share = Math.round((favoriteCount / meta.totalSets) * 100)
-    insights.push({
-      id: 'surface',
-      topic: 'Superfície',
-      headline: `A temporada pende para quadra ${favorite}`,
-      detail: `${favoriteCount} sets (${share}%) em ${favorite}. ${
-        meta.hard === meta.clay
-          ? 'Distribuição empatada entre as duas.'
-          : `Rápida ${meta.hard} · Saibro ${meta.clay}.`
-      }`,
-      accent: 'gray',
-    })
-  }
-
-  // Theme: form / hierarchy
-  const active = stats.filter((s) => s.setPlayed > 0)
-  if (active.length >= 2) {
-    const top = active[0]
-    const second = active[1]
-    const gap = top.setWins - second.setWins
-    insights.push({
-      id: 'hierarchy',
-      topic: 'Hierarquia',
-      headline:
-        gap >= 3
-          ? `${top.name} abre vantagem clara`
-          : `${top.name} lidera por pouco`,
-      detail: `${top.name} tem ${top.setWins}V e saldo ${formatDiff(top.gameDiff)} (${Math.round(top.winRate * 100)}%). ${second.name} vem logo atrás com ${second.setWins}V.`,
-      accent: 'gold',
-    })
-  }
-
-  // Theme: rivalry
-  const hottest = [...h2h].filter((r) => r.played > 0).sort((a, b) => {
-    if (b.played !== a.played) return b.played - a.played
-    return Math.min(b.winsA, b.winsB) - Math.min(a.winsA, a.winsB)
-  })[0]
-  if (hottest) {
-    const close =
-      Math.abs(hottest.winsA - hottest.winsB) <= 1 && hottest.played >= 2
-    insights.push({
-      id: 'rivalry',
-      topic: 'Rivalidade',
-      headline: close
-        ? `${nameOf(hottest.playerAId)} × ${nameOf(hottest.playerBId)} é o duelo mais quente`
-        : `O H2H mais jogado: ${nameOf(hottest.playerAId)} × ${nameOf(hottest.playerBId)}`,
-      detail: `${hottest.played} sets · placar ${hottest.winsA}–${hottest.winsB} · games ${hottest.gamesForA}–${hottest.gamesForB}.`,
-      accent: 'gold',
-    })
-  }
-
-  // Theme: context split casual vs tournament
-  if (meta.casualSets > 0 && meta.tournamentSets > 0) {
-    const casualShare = Math.round((meta.casualSets / meta.totalSets) * 100)
-    insights.push({
-      id: 'context',
-      topic: 'Contexto',
-      headline:
-        meta.tournamentSets >= meta.casualSets
-          ? 'O ritmo vem dos torneios'
-          : 'Os avulsos ainda dominam a agenda',
-      detail: `${meta.tournamentSets} sets em torneio · ${meta.casualSets} avulsos (${casualShare}% fora de torneio).`,
-      accent: 'orange',
-    })
-  } else if (meta.tournamentSets === 0) {
-    insights.push({
-      id: 'context-casual',
-      topic: 'Contexto',
-      headline: 'Temporada 100% avulsa até agora',
-      detail:
-        'Nenhum set de torneio registrado. Encerrar um torneio vai revelar quem rende sob disputa formal.',
-      accent: 'gray',
-    })
-  }
-
-  // Theme: efficiency / games conversion
-  if (active.length > 0) {
-    const byEfficiency = [...active].sort((a, b) => {
-      const effA = a.setPlayed === 0 ? 0 : a.gamesFor / a.setPlayed
-      const effB = b.setPlayed === 0 ? 0 : b.gamesFor / b.setPlayed
-      return effB - effA
-    })[0]
-    const gpg = byEfficiency.gamesFor / byEfficiency.setPlayed
-    insights.push({
-      id: 'efficiency',
-      topic: 'Eficiência',
-      headline: `${byEfficiency.name} marca mais games por set`,
-      detail: `Média de ${gpg.toFixed(1)} games a favor por set jogado · saldo ${formatDiff(byEfficiency.gameDiff)}.`,
-      accent: 'gold',
-    })
-  }
-
-  // Theme: clutch on favorite surface for top player
-  if (active[0] && meta.totalSets >= 3) {
-    const topId = active[0].playerId
-    const onHard = data.matches.filter(
-      (m) =>
-        m.surface === 'hard' &&
-        (m.playerAId === topId || m.playerBId === topId),
-    )
-    const onClay = data.matches.filter(
-      (m) =>
-        m.surface === 'clay' &&
-        (m.playerAId === topId || m.playerBId === topId),
-    )
-    const winRateOn = (list: Match[]) => {
-      if (list.length === 0) return null
-      const wins = list.filter((m) => matchWinnerId(m) === topId).length
-      return wins / list.length
-    }
-    const hardWr = winRateOn(onHard)
-    const clayWr = winRateOn(onClay)
-    if (hardWr !== null || clayWr !== null) {
-      let best: 'rápida' | 'saibro' | null = null
-      let wr = 0
-      if (hardWr !== null && clayWr !== null) {
-        best = hardWr >= clayWr ? 'rápida' : 'saibro'
-        wr = Math.max(hardWr, clayWr)
-      } else if (hardWr !== null) {
-        best = 'rápida'
-        wr = hardWr
-      } else if (clayWr !== null) {
-        best = 'saibro'
-        wr = clayWr
-      }
-      if (best) {
-        insights.push({
-          id: 'surface-ace',
-          topic: 'Terreno',
-          headline: `${active[0].name} rende mais no ${best}`,
-          detail: `Aproveitamento de ${Math.round(wr * 100)}% nessa superfície (${
-            best === 'rápida' ? onHard.length : onClay.length
-          } sets).`,
-          accent: 'orange',
-        })
-      }
-    }
-  }
-
-  return insights.slice(0, 6)
 }
