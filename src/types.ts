@@ -101,6 +101,12 @@ export interface Match {
   playerBId: UserId
   gamesA: number
   gamesB: number
+  /**
+   * Pontos do tie-break do set (só quando o placar é 7–6).
+   * null = set sem TB ou legado sem registro.
+   */
+  tiebreakA?: number | null
+  tiebreakB?: number | null
   /** minutos totais de aquecimento + set (opcional) */
   durationMinutes?: number | null
   /** bola usada (opcional) */
@@ -127,6 +133,8 @@ export type MatchEditPayload = {
   playerBId: UserId
   gamesA: number
   gamesB: number
+  tiebreakA?: number | null
+  tiebreakB?: number | null
   durationMinutes?: number | null
   ball?: BallBrand | null
   racketA?: RacketModel | null

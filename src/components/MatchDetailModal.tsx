@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { racketLabel } from '../data/profile'
-import { ballLabel, formatDuration, surfaceLabel } from '../data/ranking'
+import { ballLabel, formatDuration, formatMatchScore, surfaceLabel } from '../data/ranking'
 import { courtLabel, venueLabel } from '../data/venues'
 import type { Match, Tournament, User } from '../types'
 
@@ -86,7 +86,12 @@ export function MatchDetailModal({
         <div className="match-detail-score">
           <span className={aWon ? 'winner' : ''}>{nameA}</span>
           <strong>
-            {match.gamesA}–{match.gamesB}
+            {formatMatchScore(
+              match.gamesA,
+              match.gamesB,
+              match.tiebreakA,
+              match.tiebreakB,
+            )}
           </strong>
           <span className={!aWon ? 'winner' : ''}>{nameB}</span>
         </div>

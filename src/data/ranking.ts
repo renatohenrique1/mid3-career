@@ -463,6 +463,76 @@ export function isValidSetScore(gamesA: number, gamesB: number): boolean {
   return false
 }
 
+/** Set clássico terminou em tie-break (7–6). */
+export function needsClassicTiebreak(gamesA: number, gamesB: number): boolean {
+  return Math.max(gamesA, gamesB) === 7 && Math.min(gamesA, gamesB) === 6
+}
+
+/**
+ * Tie-break de set clássico: até 7, precisa de 2 de diferença.
+ * Ex.: 7–5, 7–3, 10–8. Inválido: 7–6, 6–4.
+ */
+export function isValidClassicTiebreak(
+  pointsA: number,
+  pointsB: number,
+): boolean {
+  if (!Number.isInteger(pointsA) || !Number.isInteger(pointsB)) return false
+  if (pointsA < 0 || pointsB < 0) return false
+  if (pointsA === pointsB) return false
+
+  const high = Math.max(pointsA, pointsB)
+  const low = Math.min(pointsA, pointsB)
+  if (high < 7) return false
+  if (high - low < 2) return false
+  if (high > 7 && high - low !== 2) return false
+  return true
+}
+
+/** Vencedor do TB deve ser o mesmo do set 7–6. */
+export function classicTiebreakMatchesSet(
+  gamesA: number,
+  gamesB: number,
+  tiebreakA: number,
+  tiebreakB: number,
+): boolean {
+  if (!needsClassicTiebreak(gamesA, gamesB)) return true
+  if (!isValidClassicTiebreak(tiebreakA, tiebreakB)) return false
+  return gamesA > gamesB === tiebreakA > tiebreakB
+}
+
+export function resolveTiebreakFields(
+  gamesA: number,
+  gamesB: number,
+  tiebreakA: number | null | undefined,
+  tiebreakB: number | null | undefined,
+): { tiebreakA: number | null; tiebreakB: number | null } {
+  if (!needsClassicTiebreak(gamesA, gamesB)) {
+    return { tiebreakA: null, tiebreakB: null }
+  }
+  return {
+    tiebreakA: tiebreakA ?? null,
+    tiebreakB: tiebreakB ?? null,
+  }
+}
+
+/** Ex.: `6–4` ou `7–6 (7–4)`. */
+export function formatMatchScore(
+  gamesA: number,
+  gamesB: number,
+  tiebreakA?: number | null,
+  tiebreakB?: number | null,
+): string {
+  const base = `${gamesA}–${gamesB}`
+  if (
+    needsClassicTiebreak(gamesA, gamesB) &&
+    tiebreakA != null &&
+    tiebreakB != null
+  ) {
+    return `${base} (${tiebreakA}–${tiebreakB})`
+  }
+  return base
+}
+
 /**
  * Tie-break estilo 5º set GS: até 10, precisa 2 de diferença.
  * Ex.: 10–8, 10–0, 12–10. Inválido: 10–9, 9–7.
@@ -546,7 +616,11 @@ export function scoreErrorMessage(format: TournamentFormat): string {
   if (f === 'fifteen_forty') {
     return 'Placar inválido. Sets até 4 (4–0, 4–1, 4–2 ou 4–3).'
   }
-  return 'Placar inválido. Use 6-0 a 6-4, 7-5 ou 7-6.'
+  return 'Placar inválido. Use 6-0 a 6-4, 7-5 ou 7-6 (com pontos do TB).'
+}
+
+export function classicTiebreakErrorMessage(): string {
+  return 'Informe o placar do tie-break (até 7, com 2 de diferença). O vencedor do TB deve ser o do set.'
 }
 
 export function quickScoresForFormat(

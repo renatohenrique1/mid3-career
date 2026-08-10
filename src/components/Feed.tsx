@@ -4,7 +4,7 @@ import {
   formatFeedWhen,
   matchWinnerId,
 } from '../data/feed'
-import { ballLabel, formatDuration, formatShortLabel, surfaceLabel } from '../data/ranking'
+import { ballLabel, formatDuration, formatMatchScore, formatShortLabel, surfaceLabel } from '../data/ranking'
 import { courtLabel, venueLabel } from '../data/venues'
 import type { AppData, FeedItem, Match, User } from '../types'
 
@@ -40,8 +40,8 @@ function scoreLine(match: Match, users: User[]) {
     winner: aWon ? nameA : nameB,
     loser: aWon ? nameB : nameA,
     score: aWon
-      ? `${match.gamesA}–${match.gamesB}`
-      : `${match.gamesB}–${match.gamesA}`,
+      ? formatMatchScore(match.gamesA, match.gamesB, match.tiebreakA, match.tiebreakB)
+      : formatMatchScore(match.gamesB, match.gamesA, match.tiebreakB, match.tiebreakA),
   }
 }
 

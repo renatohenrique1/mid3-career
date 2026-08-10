@@ -90,6 +90,8 @@ function migrate(raw: unknown): AppData {
         tournamentId: m.tournamentId ?? null,
         racketA: m.racketA ?? null,
         racketB: m.racketB ?? null,
+        tiebreakA: m.tiebreakA ?? null,
+        tiebreakB: m.tiebreakB ?? null,
       }))
     : []
 

@@ -555,6 +555,32 @@ button {
   letter-spacing: -0.03em;
 }
 
+.register-tiebreak {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+
+.register-tiebreak-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.register-games-tb strong {
+  font-size: 1.35rem;
+}
+
+.register-tb-sep {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
 .register-vs {
   display: grid;
   gap: 0.35rem;

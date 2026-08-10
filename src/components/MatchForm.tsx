@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BALL_OPTIONS,
+  classicTiebreakErrorMessage,
+  classicTiebreakMatchesSet,
   defaultScoreForFormat,
   formatBlurb,
   formatLabel,
+  formatMatchScore,
   isValidMatchScore,
   localDateString,
+  needsClassicTiebreak,
   normalizeFormat,
   pointsForWin,
   quickScoresForFormat,
   rankingHint,
+  resolveTiebreakFields,
   scoreErrorMessage,
   scoreMaxForFormat,
   scoreUnitLabel,
@@ -86,8 +91,18 @@ function summaryFromDraft(
     ? (userById(users, draft.playerBId)?.name ?? 'Jogador B')
     : (userById(users, draft.playerAId)?.name ?? 'Jogador A')
   const score = aWon
-    ? `${draft.gamesA}–${draft.gamesB}`
-    : `${draft.gamesB}–${draft.gamesA}`
+    ? formatMatchScore(
+        draft.gamesA,
+        draft.gamesB,
+        draft.tiebreakA,
+        draft.tiebreakB,
+      )
+    : formatMatchScore(
+        draft.gamesB,
+        draft.gamesA,
+        draft.tiebreakB,
+        draft.tiebreakA,
+      )
   const points = pointsForWin(format, draft.gamesA, draft.gamesB)
   return { winnerName, loserName, score, points }
 }
@@ -133,6 +148,8 @@ export function MatchForm({
   const [playerBId, setPlayerBId] = useState(others[0]?.id ?? '')
   const [gamesA, setGamesA] = useState(defaultA)
   const [gamesB, setGamesB] = useState(defaultB)
+  const [tiebreakA, setTiebreakA] = useState(7)
+  const [tiebreakB, setTiebreakB] = useState(5)
   const [durationMinutes, setDurationMinutes] = useState('')
   const [ball, setBall] = useState<BallBrand | ''>('')
   const [racketA, setRacketA] = useState<RacketModel | ''>(
@@ -171,8 +188,13 @@ export function MatchForm({
   const playerA = userById(users, playerAId)
   const playerB = userById(users, playerBId)
   const scoreValid = isValidMatchScore(matchFormat, gamesA, gamesB)
+  const showClassicTiebreak =
+    matchFormat === 'classic' && needsClassicTiebreak(gamesA, gamesB)
+  const tiebreakValid =
+    !showClassicTiebreak ||
+    classicTiebreakMatchesSet(gamesA, gamesB, tiebreakA, tiebreakB)
   const winnerId =
-    scoreValid && gamesA !== gamesB
+    scoreValid && tiebreakValid && gamesA !== gamesB
       ? gamesA > gamesB
         ? playerAId
         : playerBId
@@ -200,24 +222,53 @@ export function MatchForm({
     setError('')
   }
 
+  function defaultTiebreakForSet(nextA: number, nextB: number) {
+    if (nextA > nextB) {
+      setTiebreakA(7)
+      setTiebreakB(5)
+    } else {
+      setTiebreakA(5)
+      setTiebreakB(7)
+    }
+  }
+
+  function applyGames(nextA: number, nextB: number) {
+    const wasTb = needsClassicTiebreak(gamesA, gamesB)
+    const nowTb = needsClassicTiebreak(nextA, nextB)
+    const winnerFlipped = gamesA > gamesB !== nextA > nextB
+    setGamesA(nextA)
+    setGamesB(nextB)
+    if (nowTb && (!wasTb || winnerFlipped)) {
+      defaultTiebreakForSet(nextA, nextB)
+    }
+  }
+
   function bump(side: 'a' | 'b', delta: number) {
     setError('')
+    const nextA =
+      side === 'a'
+        ? Math.min(scoreMax, Math.max(0, gamesA + delta))
+        : gamesA
+    const nextB =
+      side === 'b'
+        ? Math.min(scoreMax, Math.max(0, gamesB + delta))
+        : gamesB
+    applyGames(nextA, nextB)
+  }
+
+  function bumpTiebreak(side: 'a' | 'b', delta: number) {
+    setError('')
     if (side === 'a') {
-      setGamesA((v) => Math.min(scoreMax, Math.max(0, v + delta)))
+      setTiebreakA((v) => Math.min(30, Math.max(0, v + delta)))
     } else {
-      setGamesB((v) => Math.min(scoreMax, Math.max(0, v + delta)))
+      setTiebreakB((v) => Math.min(30, Math.max(0, v + delta)))
     }
   }
 
   function applyQuick(a: number, b: number, favor: 'a' | 'b') {
     setError('')
-    if (favor === 'a') {
-      setGamesA(a)
-      setGamesB(b)
-    } else {
-      setGamesA(b)
-      setGamesB(a)
-    }
+    if (favor === 'a') applyGames(a, b)
+    else applyGames(b, a)
   }
 
   function swapPlayers() {
@@ -225,6 +276,8 @@ export function MatchForm({
     setPlayerBId(playerAId)
     setGamesA(gamesB)
     setGamesB(gamesA)
+    setTiebreakA(tiebreakB)
+    setTiebreakB(tiebreakA)
     setError('')
   }
 
@@ -237,6 +290,14 @@ export function MatchForm({
     setPlayerBId(draft.playerBId)
     setGamesA(draft.gamesA)
     setGamesB(draft.gamesB)
+    if (needsClassicTiebreak(draft.gamesA, draft.gamesB)) {
+      if (draft.tiebreakA != null && draft.tiebreakB != null) {
+        setTiebreakA(draft.tiebreakA)
+        setTiebreakB(draft.tiebreakB)
+      } else {
+        defaultTiebreakForSet(draft.gamesA, draft.gamesB)
+      }
+    }
     setDurationMinutes(draft.durationMinutes?.toString() ?? '')
     setBall(draft.ball ?? '')
     setRacketA(draft.racketA ?? '')
@@ -247,6 +308,7 @@ export function MatchForm({
     const [nextA, nextB] = defaultScoreForFormat(matchFormat)
     setGamesA(nextA)
     setGamesB(nextB)
+    defaultTiebreakForSet(7, 6)
     setDate(defaultDate)
     setDurationMinutes('')
     setBall('')
@@ -297,6 +359,21 @@ export function MatchForm({
       setError(scoreErrorMessage(matchFormat))
       return
     }
+    if (
+      matchFormat === 'classic' &&
+      needsClassicTiebreak(gamesA, gamesB) &&
+      !classicTiebreakMatchesSet(gamesA, gamesB, tiebreakA, tiebreakB)
+    ) {
+      setError(classicTiebreakErrorMessage())
+      return
+    }
+
+    const tb = resolveTiebreakFields(
+      gamesA,
+      gamesB,
+      matchFormat === 'classic' ? tiebreakA : null,
+      matchFormat === 'classic' ? tiebreakB : null,
+    )
 
     const resolvedCourt = showCourt ? court || null : null
     if (!isValidVenueCourt(venue, surface, resolvedCourt)) {
@@ -339,6 +416,8 @@ export function MatchForm({
       playerBId,
       gamesA,
       gamesB,
+      tiebreakA: tb.tiebreakA,
+      tiebreakB: tb.tiebreakB,
       durationMinutes: parsedDuration,
       ball: ball || null,
       racketA: racketA || null,
@@ -359,6 +438,8 @@ export function MatchForm({
           playerBId: draft.playerBId,
           gamesA: draft.gamesA,
           gamesB: draft.gamesB,
+          tiebreakA: draft.tiebreakA ?? null,
+          tiebreakB: draft.tiebreakB ?? null,
           durationMinutes: draft.durationMinutes ?? null,
           ball: draft.ball ?? null,
           racketA: draft.racketA ?? null,
@@ -615,10 +696,62 @@ export function MatchForm({
             </div>
           </div>
 
+          {showClassicTiebreak ? (
+            <div className="register-tiebreak">
+              <p className="quick-label">Tie-break do set</p>
+              <div className="register-tiebreak-row">
+                <div className="register-games register-games-tb">
+                  <button
+                    type="button"
+                    className="stepper"
+                    onClick={() => bumpTiebreak('a', -1)}
+                    aria-label="Diminuir pontos TB A"
+                  >
+                    −
+                  </button>
+                  <strong>{tiebreakA}</strong>
+                  <button
+                    type="button"
+                    className="stepper"
+                    onClick={() => bumpTiebreak('a', 1)}
+                    aria-label="Aumentar pontos TB A"
+                  >
+                    +
+                  </button>
+                </div>
+                <span className="register-tb-sep">TB</span>
+                <div className="register-games register-games-tb">
+                  <button
+                    type="button"
+                    className="stepper"
+                    onClick={() => bumpTiebreak('b', -1)}
+                    aria-label="Diminuir pontos TB B"
+                  >
+                    −
+                  </button>
+                  <strong>{tiebreakB}</strong>
+                  <button
+                    type="button"
+                    className="stepper"
+                    onClick={() => bumpTiebreak('b', 1)}
+                    aria-label="Aumentar pontos TB B"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              <p className="quick-hint">
+                Até 7 pontos, com 2 de diferença (ex.: 7–5, 10–8)
+              </p>
+            </div>
+          ) : null}
+
           <p className={`register-winner ${winnerId ? '' : 'muted'}`}>
             {winnerId && playerA && playerB
               ? `Vencedor: ${winnerId === playerAId ? playerA.name : playerB.name}`
-              : 'Ajuste o placar do set'}
+              : showClassicTiebreak
+                ? 'Ajuste games e o placar do tie-break'
+                : 'Ajuste o placar do set'}
           </p>
         </div>
 
@@ -802,7 +935,12 @@ export function MatchForm({
         <button
           type="submit"
           className="btn btn-primary btn-wide btn-register"
-          disabled={saving || !scoreValid || playerAId === playerBId}
+          disabled={
+            saving ||
+            !scoreValid ||
+            !tiebreakValid ||
+            playerAId === playerBId
+          }
         >
           {saving
             ? 'Salvando…'

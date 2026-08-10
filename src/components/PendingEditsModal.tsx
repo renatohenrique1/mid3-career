@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { describeMatchEditChanges } from '../data/matchEdits'
-import { surfaceLabel } from '../data/ranking'
+import { formatMatchScore, surfaceLabel } from '../data/ranking'
 import { venueLabel } from '../data/venues'
 import type { Match, MatchEditRequest, User } from '../types'
 
@@ -96,7 +96,13 @@ export function PendingEditsModal({
                   <span className="muted-inline">
                     {' '}
                     · {formatDate(match.date)} · {venueLabel(match.venue)} ·{' '}
-                    {surfaceLabel(match.surface)} · {match.gamesA}–{match.gamesB}
+                    {surfaceLabel(match.surface)} ·{' '}
+                    {formatMatchScore(
+                      match.gamesA,
+                      match.gamesB,
+                      match.tiebreakA,
+                      match.tiebreakB,
+                    )}
                   </span>
                 </p>
                 <p className="muted-inline">

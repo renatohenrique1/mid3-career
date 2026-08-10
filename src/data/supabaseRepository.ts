@@ -75,6 +75,8 @@ type MatchRow = {
   player_b_id: string
   games_a: number
   games_b: number
+  tiebreak_a: number | null
+  tiebreak_b: number | null
   duration_minutes: number | null
   ball: string | null
   racket_a: string | null
@@ -147,6 +149,8 @@ function mapMatch(row: MatchRow): Match {
     playerBId: row.player_b_id,
     gamesA: row.games_a,
     gamesB: row.games_b,
+    tiebreakA: row.tiebreak_a ?? null,
+    tiebreakB: row.tiebreak_b ?? null,
     durationMinutes: row.duration_minutes,
     ball: (row.ball as BallBrand | null) ?? null,
     racketA: (row.racket_a as RacketModel | null) ?? null,
@@ -687,6 +691,8 @@ export const supabaseRepository: DataRepository = {
         player_b_id: match.playerBId,
         games_a: match.gamesA,
         games_b: match.gamesB,
+        tiebreak_a: match.tiebreakA ?? null,
+        tiebreak_b: match.tiebreakB ?? null,
         duration_minutes: match.durationMinutes ?? null,
         ball: match.ball ?? null,
         racket_a: match.racketA ?? null,
@@ -766,6 +772,8 @@ export const supabaseRepository: DataRepository = {
         player_b_id: normalized.playerBId,
         games_a: normalized.gamesA,
         games_b: normalized.gamesB,
+        tiebreak_a: normalized.tiebreakA ?? null,
+        tiebreak_b: normalized.tiebreakB ?? null,
         duration_minutes: normalized.durationMinutes ?? null,
         ball: normalized.ball ?? null,
         racket_a: normalized.racketA ?? null,
@@ -915,6 +923,8 @@ export const supabaseRepository: DataRepository = {
           player_b_id: payload.playerBId,
           games_a: payload.gamesA,
           games_b: payload.gamesB,
+          tiebreak_a: payload.tiebreakA ?? null,
+          tiebreak_b: payload.tiebreakB ?? null,
           duration_minutes: payload.durationMinutes ?? null,
           ball: payload.ball ?? null,
           racket_a: payload.racketA ?? null,

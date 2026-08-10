@@ -75,6 +75,8 @@ create table if not exists public.matches (
   player_b_id uuid not null references public.profiles (id),
   games_a integer not null check (games_a >= 0),
   games_b integer not null check (games_b >= 0),
+  tiebreak_a integer check (tiebreak_a is null or tiebreak_a >= 0),
+  tiebreak_b integer check (tiebreak_b is null or tiebreak_b >= 0),
   duration_minutes integer check (
     duration_minutes is null
     or (duration_minutes > 0 and duration_minutes <= 600)

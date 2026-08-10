@@ -1,4 +1,4 @@
-import { ballLabel, formatDuration, surfaceLabel } from './ranking'
+import { ballLabel, formatDuration, formatMatchScore, surfaceLabel } from './ranking'
 import { racketLabel } from './profile'
 import { courtLabel, venueLabel } from './venues'
 import type {
@@ -32,6 +32,18 @@ export function normalizeMatchEditPayload(raw: unknown): MatchEditPayload {
     playerBId: String(p.playerBId ?? p.player_b_id ?? ''),
     gamesA: num(p.gamesA ?? p.games_a),
     gamesB: num(p.gamesB ?? p.games_b),
+    tiebreakA:
+      p.tiebreakA === undefined && p.tiebreak_a === undefined
+        ? null
+        : p.tiebreakA === null || p.tiebreak_a === null
+          ? null
+          : num(p.tiebreakA ?? p.tiebreak_a),
+    tiebreakB:
+      p.tiebreakB === undefined && p.tiebreak_b === undefined
+        ? null
+        : p.tiebreakB === null || p.tiebreak_b === null
+          ? null
+          : num(p.tiebreakB ?? p.tiebreak_b),
     durationMinutes:
       p.durationMinutes === undefined && p.duration_minutes === undefined
         ? null
@@ -70,10 +82,12 @@ export function describeMatchEditChanges(
   }
   if (
     payload.gamesA !== match.gamesA ||
-    payload.gamesB !== match.gamesB
+    payload.gamesB !== match.gamesB ||
+    (payload.tiebreakA ?? null) !== (match.tiebreakA ?? null) ||
+    (payload.tiebreakB ?? null) !== (match.tiebreakB ?? null)
   ) {
     changes.push(
-      `Placar: ${match.gamesA}–${match.gamesB} → ${payload.gamesA}–${payload.gamesB}`,
+      `Placar: ${formatMatchScore(match.gamesA, match.gamesB, match.tiebreakA, match.tiebreakB)} → ${formatMatchScore(payload.gamesA, payload.gamesB, payload.tiebreakA, payload.tiebreakB)}`,
     )
   }
   if (
@@ -116,6 +130,8 @@ export function requiresMatchEditApproval(
   return (
     payload.gamesA !== match.gamesA ||
     payload.gamesB !== match.gamesB ||
+    (payload.tiebreakA ?? null) !== (match.tiebreakA ?? null) ||
+    (payload.tiebreakB ?? null) !== (match.tiebreakB ?? null) ||
     payload.playerAId !== match.playerAId ||
     payload.playerBId !== match.playerBId
   )

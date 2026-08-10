@@ -7,9 +7,14 @@ import { racketLabel } from '../data/profile'
 import {
   BALL_OPTIONS,
   ballLabel,
+  classicTiebreakErrorMessage,
+  classicTiebreakMatchesSet,
   formatDuration,
+  formatMatchScore,
   isValidMatchScore,
+  needsClassicTiebreak,
   normalizeFormat,
+  resolveTiebreakFields,
   surfaceLabel,
 } from '../data/ranking'
 import {
@@ -151,7 +156,12 @@ export function MatchHistory({
                   <div className="history-score">
                     <span className={aWon ? 'winner' : ''}>{nameA}</span>
                     <strong>
-                      {match.gamesA}–{match.gamesB}
+                      {formatMatchScore(
+                        match.gamesA,
+                        match.gamesB,
+                        match.tiebreakA,
+                        match.tiebreakB,
+                      )}
                     </strong>
                     <span className={!aWon ? 'winner' : ''}>{nameB}</span>
                   </div>
@@ -348,6 +358,8 @@ function MatchEditForm({
   )
   const [gamesA, setGamesA] = useState(match.gamesA)
   const [gamesB, setGamesB] = useState(match.gamesB)
+  const [tiebreakA, setTiebreakA] = useState(match.tiebreakA ?? 7)
+  const [tiebreakB, setTiebreakB] = useState(match.tiebreakB ?? 5)
   const [durationMinutes, setDurationMinutes] = useState(
     match.durationMinutes?.toString() ?? '',
   )
@@ -359,6 +371,9 @@ function MatchEditForm({
   const surfaceLocked = lockedSurfaceForVenue(venue) !== null
   const courtOptions = courtsForVenueSurface(venue, surface)
   const showCourt = venue === 'ceret'
+  const classicFormat = normalizeFormat(scoreFormat) === 'classic'
+  const showClassicTiebreak =
+    classicFormat && needsClassicTiebreak(gamesA, gamesB)
 
   function applyVenue(nextVenue: VenueId) {
     const nextSurface = resolveSurfaceForVenue(nextVenue, surface)
@@ -395,6 +410,20 @@ function MatchEditForm({
           setError('Placar inválido para este formato.')
           return
         }
+        if (
+          classicFormat &&
+          needsClassicTiebreak(gamesA, gamesB) &&
+          !classicTiebreakMatchesSet(gamesA, gamesB, tiebreakA, tiebreakB)
+        ) {
+          setError(classicTiebreakErrorMessage())
+          return
+        }
+        const tb = resolveTiebreakFields(
+          gamesA,
+          gamesB,
+          classicFormat ? tiebreakA : null,
+          classicFormat ? tiebreakB : null,
+        )
         const resolvedCourt = showCourt ? court || null : null
         if (!isValidVenueCourt(venue, surface, resolvedCourt)) {
           setError(
@@ -422,6 +451,8 @@ function MatchEditForm({
           playerBId: match.playerBId,
           gamesA,
           gamesB,
+          tiebreakA: tb.tiebreakA,
+          tiebreakB: tb.tiebreakB,
           durationMinutes: duration,
           ball: ball || null,
           racketA: racketA || null,
@@ -509,6 +540,28 @@ function MatchEditForm({
           />
         </label>
       </div>
+      {showClassicTiebreak ? (
+        <div className="form-row">
+          <label>
+            <span>TB · {userName(users, match.playerAId)}</span>
+            <input
+              type="number"
+              value={tiebreakA}
+              onChange={(e) => setTiebreakA(Number(e.target.value))}
+              min={0}
+            />
+          </label>
+          <label>
+            <span>TB · {userName(users, match.playerBId)}</span>
+            <input
+              type="number"
+              value={tiebreakB}
+              onChange={(e) => setTiebreakB(Number(e.target.value))}
+              min={0}
+            />
+          </label>
+        </div>
+      ) : null}
       <div className="form-row">
         <label>
           <span>Duração</span>

@@ -24,10 +24,11 @@ Se o projeto **já existia**, rode também:
 2. [`supabase/migration_profiles_cards.sql`](./supabase/migration_profiles_cards.sql) (nickname, card, raquetes, pedidos de edição de set)  
 3. [`supabase/migration_match_update_rls.sql`](./supabase/migration_match_update_rls.sql) (permite aplicar edição aprovada no set)  
 4. [`supabase/migration_match_venue_court.sql`](./supabase/migration_match_venue_court.sql) (local e quadra do set)  
+5. [`supabase/migration_match_tiebreak.sql`](./supabase/migration_match_tiebreak.sql) (placar do TB em sets 7–6)  
 
 Se você chegou a rodar as tabelas de Previsões ATP, limpe com:
 
-5. [`supabase/migration_drop_predicts.sql`](./supabase/migration_drop_predicts.sql)
+6. [`supabase/migration_drop_predicts.sql`](./supabase/migration_drop_predicts.sql)
 
 ## 3. Auth (nome + senha)
 
