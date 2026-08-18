@@ -42,8 +42,8 @@ export function CareerRanking({
 
   const selectedH2H = useMemo(() => {
     if (!selected) return []
-    return h2HForPlayer(h2h, selected.playerId)
-  }, [h2h, selected])
+    return h2HForPlayer(h2h, selected.playerId, data.matches)
+  }, [h2h, selected, data.matches])
 
   return (
     <section className="career-home">
@@ -226,10 +226,22 @@ export function CareerRanking({
                           : `${row.wins}–${row.losses} · ${lead}`}
                       </span>
                     </div>
-                    <div className="h2h-score" aria-label="Placar H2H">
-                      <span>{row.wins}</span>
-                      <span className="h2h-sep">–</span>
-                      <span>{row.losses}</span>
+                    <div
+                      className="h2h-score-block"
+                      aria-label="Placar moda"
+                    >
+                      <span className="h2h-score-label">Placar moda</span>
+                      <div className="h2h-score">
+                        {row.modeFor == null || row.modeAgainst == null ? (
+                          <span>—</span>
+                        ) : (
+                          <>
+                            <span>{row.modeFor}</span>
+                            <span className="h2h-sep">–</span>
+                            <span>{row.modeAgainst}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </li>
                 )

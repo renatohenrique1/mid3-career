@@ -174,22 +174,82 @@ export function leadersFromCareer(stats: CareerStats[]) {
 export function h2HForPlayer(
   records: H2HRecord[],
   playerId: UserId,
-): Array<H2HRecord & { opponentId: UserId; wins: number; losses: number }> {
+  matches: Match[] = [],
+): Array<
+  H2HRecord & {
+    opponentId: UserId
+    wins: number
+    losses: number
+    gamesFor: number
+    gamesAgainst: number
+    modeFor: number | null
+    modeAgainst: number | null
+  }
+> {
   return records
     .filter((r) => r.playerAId === playerId || r.playerBId === playerId)
     .map((r) => {
       const isA = r.playerAId === playerId
+      const opponentId = isA ? r.playerBId : r.playerAId
+      const mode = modeSetScore(matches, playerId, opponentId)
       return {
         ...r,
-        opponentId: isA ? r.playerBId : r.playerAId,
+        opponentId,
         wins: isA ? r.winsA : r.winsB,
         losses: isA ? r.winsB : r.winsA,
+        gamesFor: isA ? r.gamesForA : r.gamesForB,
+        gamesAgainst: isA ? r.gamesForB : r.gamesForA,
+        modeFor: mode?.for ?? null,
+        modeAgainst: mode?.against ?? null,
       }
     })
     .sort((a, b) => {
       if (b.played !== a.played) return b.played - a.played
       return b.wins - a.wins
     })
+}
+
+function modeSetScore(
+  matches: Match[],
+  playerId: UserId,
+  opponentId: UserId,
+): { for: number; against: number } | null {
+  const counts = new Map<
+    string,
+    { for: number; against: number; count: number; last: string }
+  >()
+
+  for (const match of matches) {
+    const isA =
+      match.playerAId === playerId && match.playerBId === opponentId
+    const isB =
+      match.playerBId === playerId && match.playerAId === opponentId
+    if (!isA && !isB) continue
+
+    const forGames = isA ? match.gamesA : match.gamesB
+    const againstGames = isA ? match.gamesB : match.gamesA
+    const key = `${forGames}-${againstGames}`
+    const stamp = `${match.date}|${match.createdAt}`
+    const prev = counts.get(key)
+    if (!prev) {
+      counts.set(key, {
+        for: forGames,
+        against: againstGames,
+        count: 1,
+        last: stamp,
+      })
+    } else {
+      prev.count += 1
+      if (stamp > prev.last) prev.last = stamp
+    }
+  }
+
+  const ranked = [...counts.values()].sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count
+    return b.last.localeCompare(a.last)
+  })
+  const top = ranked[0]
+  return top ? { for: top.for, against: top.against } : null
 }
 
 export function formatDiff(n: number) {

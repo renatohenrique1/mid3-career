@@ -1511,6 +1511,20 @@ button {
   color: var(--accent-ink);
 }
 
+.h2h-score-block {
+  display: grid;
+  justify-items: end;
+  gap: 0.12rem;
+}
+
+.h2h-score-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
 .h2h-score {
   display: inline-flex;
   align-items: baseline;
