@@ -1,6 +1,6 @@
 import type { AppData, Match } from '../types'
 import { computeCareerStats, computeH2H } from './career'
-import { pointsForWin } from './ranking'
+import { pointsForWin, sortMatchesChronologically } from './ranking'
 import { venueLabel } from './venues'
 
 export interface ChartSlice {
@@ -104,17 +104,24 @@ function formatShortDate(iso: string) {
 }
 
 function buildRankingTimeline(data: AppData): RankingTimeline {
-  const sorted = [...data.matches].sort((a, b) => {
-    if (a.date !== b.date) return a.date.localeCompare(b.date)
-    return a.createdAt.localeCompare(b.createdAt)
-  })
+  const sorted = sortMatchesChronologically(data.matches)
 
   if (sorted.length === 0) {
     return { dates: [], series: [] }
   }
 
   const points = new Map<string, number>()
-  for (const user of data.users) points.set(user.id, 0)
+  const wins = new Map<string, number>()
+  const played = new Map<string, number>()
+  const gamesFor = new Map<string, number>()
+  const gamesAgainst = new Map<string, number>()
+  for (const user of data.users) {
+    points.set(user.id, 0)
+    wins.set(user.id, 0)
+    played.set(user.id, 0)
+    gamesFor.set(user.id, 0)
+    gamesAgainst.set(user.id, 0)
+  }
 
   const dates: string[] = []
   const snapshots: number[][] = []
@@ -131,12 +138,45 @@ function buildRankingTimeline(data: AppData): RankingTimeline {
       flushDay()
       day = match.date
     }
-    const pts = pointsForWin('classic', match.gamesA, match.gamesB)
-    if (match.gamesA > match.gamesB) {
-      points.set(match.playerAId, (points.get(match.playerAId) ?? 0) + pts)
-    } else {
-      points.set(match.playerBId, (points.get(match.playerBId) ?? 0) + pts)
-    }
+    const winnerId =
+      match.gamesA > match.gamesB ? match.playerAId : match.playerBId
+    const loserId =
+      winnerId === match.playerAId ? match.playerBId : match.playerAId
+    const standings = data.users.map((user) => ({
+      playerId: user.id,
+      name: user.name,
+      points: points.get(user.id) ?? 0,
+      wins: wins.get(user.id) ?? 0,
+      played: played.get(user.id) ?? 0,
+      gamesFor: gamesFor.get(user.id) ?? 0,
+      gamesAgainst: gamesAgainst.get(user.id) ?? 0,
+    }))
+    const pts = pointsForWin('classic', match.gamesA, match.gamesB, {
+      standings,
+      winnerId,
+      loserId,
+    })
+
+    played.set(match.playerAId, (played.get(match.playerAId) ?? 0) + 1)
+    played.set(match.playerBId, (played.get(match.playerBId) ?? 0) + 1)
+    gamesFor.set(
+      match.playerAId,
+      (gamesFor.get(match.playerAId) ?? 0) + match.gamesA,
+    )
+    gamesAgainst.set(
+      match.playerAId,
+      (gamesAgainst.get(match.playerAId) ?? 0) + match.gamesB,
+    )
+    gamesFor.set(
+      match.playerBId,
+      (gamesFor.get(match.playerBId) ?? 0) + match.gamesB,
+    )
+    gamesAgainst.set(
+      match.playerBId,
+      (gamesAgainst.get(match.playerBId) ?? 0) + match.gamesA,
+    )
+    wins.set(winnerId, (wins.get(winnerId) ?? 0) + 1)
+    points.set(winnerId, (points.get(winnerId) ?? 0) + pts)
   }
   flushDay()
 

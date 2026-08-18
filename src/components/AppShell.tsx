@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { buildFeed } from '../data/feed'
+import { computeCareerStats } from '../data/career'
 import {
   buildRoundRobinFixtures,
   computeRanking,
@@ -199,6 +200,20 @@ export function AppShell({
     [participants, tournamentMatches, tournamentFormat],
   )
 
+  const careerStandings = useMemo(
+    () =>
+      computeCareerStats(data).map((s) => ({
+        playerId: s.playerId,
+        name: s.name,
+        points: s.points,
+        wins: s.setWins,
+        played: s.setPlayed,
+        gamesFor: s.gamesFor,
+        gamesAgainst: s.gamesAgainst,
+      })),
+    [data],
+  )
+
   const fixtures = useMemo(
     () =>
       activeTournament
@@ -235,6 +250,21 @@ export function AppShell({
   const canRegisterInTournament = Boolean(
     activeTournament && tournamentOpenForSets && isParticipant,
   )
+
+  const registerStandings = useMemo(() => {
+    if (canRegisterInTournament) {
+      return tournamentRanking.map((s) => ({
+        playerId: s.playerId,
+        name: s.name,
+        points: s.points,
+        wins: s.wins,
+        played: s.played,
+        gamesFor: s.gamesFor,
+        gamesAgainst: s.gamesAgainst,
+      }))
+    }
+    return careerStandings
+  }, [canRegisterInTournament, tournamentRanking, careerStandings])
 
   const registerTournamentId = canRegisterInTournament
     ? activeTournament!.id
@@ -375,6 +405,7 @@ export function AppShell({
                 : users
             }
             currentUser={currentUser}
+            standings={registerStandings}
             onSubmit={onRecordMatch}
             onUpdate={onUpdateMatch}
             onDelete={onDeleteMatch}

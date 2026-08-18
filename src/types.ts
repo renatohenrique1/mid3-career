@@ -191,7 +191,7 @@ export interface CareerStats {
   setLosses: number
   setPlayed: number
   titles: number
-  /** Pontuação clássica: 3 + diferença de games por set vencido. */
+  /** Pontuação clássica: 3 + diferença, com cap de 3 pts se o 1º vencer o 3º em placar apertado. */
   points: number
   gamesFor: number
   gamesAgainst: number

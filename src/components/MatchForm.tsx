@@ -20,6 +20,7 @@ import {
   scoreUnitLabel,
   surfaceLabel,
   tournamentMatchDateError,
+  type RankingStanding,
 } from '../data/ranking'
 import { RACKET_MODELS } from '../data/profile'
 import {
@@ -61,6 +62,7 @@ interface MatchFormProps {
   format?: TournamentFormat
   users: User[]
   currentUser: User
+  standings?: RankingStanding[]
   onSubmit: (
     match: MatchDraft,
   ) => Promise<{ ok: true; matchId: string } | { ok: false; error: string }>
@@ -82,8 +84,11 @@ function summaryFromDraft(
   draft: MatchDraft,
   users: User[],
   format: TournamentFormat,
+  standings: RankingStanding[] = [],
 ) {
   const aWon = draft.gamesA > draft.gamesB
+  const winnerId = aWon ? draft.playerAId : draft.playerBId
+  const loserId = aWon ? draft.playerBId : draft.playerAId
   const winnerName = aWon
     ? (userById(users, draft.playerAId)?.name ?? 'Jogador A')
     : (userById(users, draft.playerBId)?.name ?? 'Jogador B')
@@ -103,7 +108,11 @@ function summaryFromDraft(
         draft.tiebreakB,
         draft.tiebreakA,
       )
-  const points = pointsForWin(format, draft.gamesA, draft.gamesB)
+  const points = pointsForWin(format, draft.gamesA, draft.gamesB, {
+    standings,
+    winnerId,
+    loserId,
+  })
   return { winnerName, loserName, score, points }
 }
 
@@ -115,6 +124,7 @@ export function MatchForm({
   format = 'classic',
   users,
   currentUser,
+  standings = [],
   onSubmit,
   onUpdate,
   onDelete,
@@ -424,7 +434,7 @@ export function MatchForm({
       racketB: racketB || null,
       recordedById: currentUser.id,
     }
-    const summary = summaryFromDraft(draft, users, matchFormat)
+    const summary = summaryFromDraft(draft, users, matchFormat, standings)
 
     setSaving(true)
     try {

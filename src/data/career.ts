@@ -7,7 +7,7 @@ import type {
   User,
   UserId,
 } from '../types'
-import { pointsForWin } from './ranking'
+import { pointsForWin, sortMatchesChronologically } from './ranking'
 
 function pairKey(a: UserId, b: UserId) {
   return a < b ? `${a}::${b}` : `${b}::${a}`
@@ -33,10 +33,29 @@ export function computeCareerStats(data: AppData): CareerStats[] {
     })
   }
 
-  for (const match of data.matches) {
+  for (const match of sortMatchesChronologically(data.matches)) {
     const a = stats.get(match.playerAId)
     const b = stats.get(match.playerBId)
     if (!a || !b) continue
+
+    const winnerId =
+      match.gamesA > match.gamesB ? match.playerAId : match.playerBId
+    const loserId =
+      winnerId === match.playerAId ? match.playerBId : match.playerAId
+    const standings = [...stats.values()].map((s) => ({
+      playerId: s.playerId,
+      name: s.name,
+      points: s.points,
+      wins: s.setWins,
+      played: s.setPlayed,
+      gamesFor: s.gamesFor,
+      gamesAgainst: s.gamesAgainst,
+    }))
+    const pts = pointsForWin('classic', match.gamesA, match.gamesB, {
+      standings,
+      winnerId,
+      loserId,
+    })
 
     a.setPlayed += 1
     b.setPlayed += 1
@@ -45,7 +64,6 @@ export function computeCareerStats(data: AppData): CareerStats[] {
     b.gamesFor += match.gamesB
     b.gamesAgainst += match.gamesA
 
-    const pts = pointsForWin('classic', match.gamesA, match.gamesB)
     if (match.gamesA > match.gamesB) {
       a.setWins += 1
       a.points += pts

@@ -16,7 +16,8 @@ export const TOURNAMENT_FORMATS: Array<{
     id: 'classic',
     label: 'Clássico',
     short: 'Clássico',
-    blurb: 'Set normal. Pontos: 3 + diferença de games.',
+    blurb:
+      'Set normal. Pontos: 3 + diferença de games. 1º vs 3º: só 3 pts em 7–6, 7–5, 6–4 ou 6–3.',
   },
   {
     id: 'tb',
@@ -302,21 +303,87 @@ function formatPeriodDay(isoDate: string): string {
   })
 }
 
-/** Clássico: 3 + |diff|. Outros formatos: 1 ponto. */
+export type RankingStanding = {
+  playerId: string
+  name: string
+  points: number
+  wins: number
+  played: number
+  gamesFor: number
+  gamesAgainst: number
+}
+
+export function sortMatchesChronologically(matches: Match[]): Match[] {
+  return [...matches].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    return a.createdAt.localeCompare(b.createdAt)
+  })
+}
+
+export function sortClassicStandings<T extends RankingStanding>(rows: T[]): T[] {
+  return [...rows].sort((x, y) => {
+    if (y.points !== x.points) return y.points - x.points
+    if (y.wins !== x.wins) return y.wins - x.wins
+    if (y.played !== x.played) return y.played - x.played
+    const diffX = x.gamesFor - x.gamesAgainst
+    const diffY = y.gamesFor - y.gamesAgainst
+    if (diffY !== diffX) return diffY - diffX
+    return x.name.localeCompare(y.name, 'pt-BR')
+  })
+}
+
+/** 7–6, 7–5, 6–4 ou 6–3. */
+export function isCloseClassicScore(gamesA: number, gamesB: number): boolean {
+  const high = Math.max(gamesA, gamesB)
+  const low = Math.min(gamesA, gamesB)
+  return (
+    (high === 7 && (low === 6 || low === 5)) ||
+    (high === 6 && (low === 4 || low === 3))
+  )
+}
+
+/** 1º no ranking bate quem está 2+ posições abaixo (3º em diante). */
+export function isLeaderBeatingTwoBelow(
+  standings: RankingStanding[],
+  winnerId: string,
+  loserId: string,
+): boolean {
+  const ranked = sortClassicStandings(standings.filter((s) => s.played > 0))
+  if (ranked.length < 3) return false
+  const winnerRank = ranked.findIndex((s) => s.playerId === winnerId)
+  const loserRank = ranked.findIndex((s) => s.playerId === loserId)
+  return winnerRank === 0 && loserRank >= 2
+}
+
+/** Clássico: 3 + |diff|. 1º vs 3º em placar apertado: só 3. Outros formatos: 1 ponto. */
 export function pointsForWin(
   format: TournamentFormat,
   gamesA: number,
   gamesB: number,
+  options?: {
+    standings?: RankingStanding[]
+    winnerId?: string
+    loserId?: string
+  },
 ): number {
-  if (normalizeFormat(format) === 'classic') {
-    return 3 + Math.abs(gamesA - gamesB)
+  if (normalizeFormat(format) !== 'classic') return 1
+  const full = 3 + Math.abs(gamesA - gamesB)
+  const { standings, winnerId, loserId } = options ?? {}
+  if (
+    standings &&
+    winnerId &&
+    loserId &&
+    isLeaderBeatingTwoBelow(standings, winnerId, loserId) &&
+    isCloseClassicScore(gamesA, gamesB)
+  ) {
+    return 3
   }
-  return 1
+  return full
 }
 
 export function rankingHint(format: TournamentFormat): string {
   if (normalizeFormat(format) === 'classic') {
-    return 'Clássico: 3 pts + diferença de games'
+    return 'Clássico: 3 + diferença. 1º vs 3º: 3 pts em 7–6, 7–5, 6–4 ou 6–3'
   }
   return 'Vitórias → saldo de games → confronto direto'
 }
@@ -369,6 +436,20 @@ export function tournamentPairLimitError(
   return null
 }
 
+function standingsFromStats(
+  stats: Map<string, PlayerStats>,
+): RankingStanding[] {
+  return [...stats.values()].map((s) => ({
+    playerId: s.playerId,
+    name: s.name,
+    points: s.points,
+    wins: s.wins,
+    played: s.played,
+    gamesFor: s.gamesFor,
+    gamesAgainst: s.gamesAgainst,
+  }))
+}
+
 /** Ranking com pontuação conforme o formato do torneio (ou clássico nos avulsos). */
 export function computeRanking(
   users: User[],
@@ -392,10 +473,20 @@ export function computeRanking(
     })
   }
 
-  for (const match of matches) {
+  for (const match of sortMatchesChronologically(matches)) {
     const a = stats.get(match.playerAId)
     const b = stats.get(match.playerBId)
     if (!a || !b) continue
+
+    const winnerId =
+      match.gamesA > match.gamesB ? match.playerAId : match.playerBId
+    const loserId =
+      winnerId === match.playerAId ? match.playerBId : match.playerAId
+    const pts = pointsForWin(scoring, match.gamesA, match.gamesB, {
+      standings: standingsFromStats(stats),
+      winnerId,
+      loserId,
+    })
 
     a.played += 1
     b.played += 1
@@ -404,7 +495,6 @@ export function computeRanking(
     b.gamesFor += match.gamesB
     b.gamesAgainst += match.gamesA
 
-    const pts = pointsForWin(scoring, match.gamesA, match.gamesB)
     if (match.gamesA > match.gamesB) {
       a.wins += 1
       a.points += pts

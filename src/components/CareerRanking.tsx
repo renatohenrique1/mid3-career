@@ -49,7 +49,10 @@ export function CareerRanking({
     <section className="career-home">
       <header className="sets-hero sets-hero-compact">
         <h2>Ranking</h2>
-        <p>Classificação por pontos (3 + diferença de games por set vencido).</p>
+        <p>
+          Classificação por pontos (3 + diferença de games). 1º vs 3º: só 3 pts
+          em 7–6, 7–5, 6–4 ou 6–3.
+        </p>
       </header>
 
       {stats.length === 0 ? (
