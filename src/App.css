@@ -2170,10 +2170,7 @@ option {
 
 .tourney-hero {
   display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 1.1rem;
-  align-items: stretch;
-  min-height: 10.5rem;
+  gap: 0.35rem;
 }
 
 .tourney-hero-copy {
@@ -2206,63 +2203,6 @@ option {
   color: var(--ink-muted);
   font-size: 1.02rem;
   line-height: 1.5;
-}
-
-.tourney-court {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius);
-  min-height: 8rem;
-  background:
-    linear-gradient(145deg, rgba(249, 115, 22, 0.28), transparent 48%),
-    linear-gradient(180deg, #2a2a2a, #111111);
-  border: 1px solid rgba(224, 184, 58, 0.35);
-}
-
-.court-line {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.court-line-h {
-  left: 12%;
-  right: 12%;
-  top: 50%;
-  height: 1px;
-}
-
-.court-line-v {
-  top: 14%;
-  bottom: 14%;
-  left: 50%;
-  width: 1px;
-}
-
-.court-net {
-  position: absolute;
-  left: 18%;
-  right: 18%;
-  top: calc(50% - 9px);
-  height: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.55);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
-  background: repeating-linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.2),
-    rgba(255, 255, 255, 0.2) 2px,
-    transparent 2px,
-    transparent 7px
-  );
-}
-
-.court-ball {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  right: 18%;
-  top: 24%;
-  background: var(--gold);
 }
 
 .tourney-stats {
@@ -3370,10 +3310,6 @@ option {
     padding: 1.05rem 1.1rem;
   }
 
-  .tourney-court {
-    min-height: 100%;
-  }
-
   .feed-list {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -3392,17 +3328,6 @@ option {
 
   .layout {
     gap: 1.15rem;
-  }
-}
-
-@media (max-width: 899px) {
-  .tourney-hero {
-    grid-template-columns: 1fr;
-  }
-
-  .tourney-court {
-    min-height: 7.5rem;
-    order: -1;
   }
 }
 

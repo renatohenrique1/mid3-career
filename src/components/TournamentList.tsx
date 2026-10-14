@@ -140,12 +140,6 @@ export function TournamentList({
             partidas registradas ali dentro.
           </p>
         </div>
-        <div className="tourney-court" aria-hidden>
-          <span className="court-line court-line-h" />
-          <span className="court-line court-line-v" />
-          <span className="court-net" />
-          <span className="court-ball" />
-        </div>
       </header>
 
       <div className="tourney-stats" aria-label="Resumo">
