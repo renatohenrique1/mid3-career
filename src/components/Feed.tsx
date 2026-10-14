@@ -125,7 +125,14 @@ export function Feed({
       ) : (
         <ul className="feed-list">
           {visible.map((item) => (
-            <li key={item.id} className={`feed-item panel feed-${item.kind}`}>
+            <li
+              key={item.id}
+              className={`feed-item panel feed-${item.kind}${
+                item.kind === 'casual_set' || item.kind === 'tournament_set'
+                  ? ` court-surface court-${item.match.surface}`
+                  : ''
+              }`}
+            >
               <FeedCard
                 item={item}
                 users={data.users}
@@ -197,7 +204,7 @@ function FeedCard({
 
   return (
     <div
-      className={`feed-set-card feed-set-clickable ${isTournament ? 'is-tournament' : 'is-casual'}`}
+      className={`feed-set-card feed-set-clickable ${isTournament ? 'is-tournament' : 'is-casual'} surface-${match.surface}`}
       role={onOpenMatch ? 'button' : undefined}
       tabIndex={onOpenMatch ? 0 : undefined}
       onClick={onOpenMatch ? () => onOpenMatch(match.id) : undefined}

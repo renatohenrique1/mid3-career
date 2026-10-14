@@ -1633,6 +1633,80 @@ button {
     0 0 24px rgba(224, 184, 58, 0.08);
 }
 
+.court-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.court-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center 18%;
+  background-size: 135% auto;
+  opacity: 0.55;
+}
+
+.court-clay::before {
+  background-image: url('/court.svg');
+}
+
+.court-hard::before {
+  background-image: url('/court-hard.svg');
+}
+
+.court-surface::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(10, 10, 10, 0.22),
+    rgba(10, 10, 10, 0.52)
+  );
+}
+
+.court-surface > * {
+  position: relative;
+  z-index: 1;
+}
+
+.court-clay {
+  background:
+    radial-gradient(120% 90% at 12% -10%, rgba(255, 170, 90, 0.22), transparent 48%),
+    linear-gradient(165deg, #9a4a22 0%, #7a3418 42%, #4e1f0e 100%);
+  border-color: rgba(232, 121, 58, 0.45);
+}
+
+.court-hard {
+  background:
+    radial-gradient(120% 90% at 88% -10%, rgba(90, 160, 255, 0.2), transparent 48%),
+    linear-gradient(165deg, #2a5ea8 0%, #1a3f78 42%, #102848 100%);
+  border-color: rgba(96, 165, 250, 0.32);
+}
+
+.court-surface .feed-context-chip,
+.court-surface .surface-chip,
+.court-surface .feed-badge {
+  background: rgba(8, 8, 8, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.court-clay .feed-set-card.is-casual {
+  border-left-color: #f2b07a;
+}
+
+.court-hard .feed-set-card.is-casual {
+  border-left-color: #93c5fd;
+}
+
 .feed-set-card,
 .feed-title-card {
   display: grid;
@@ -1961,6 +2035,24 @@ button {
   border-radius: var(--radius);
   padding: 1.1rem 1.15rem 1.2rem;
   box-shadow: var(--shadow);
+}
+
+.panel.court-clay,
+.app-modal-card.court-clay,
+.history-item.court-clay {
+  background:
+    radial-gradient(120% 90% at 12% -10%, rgba(255, 170, 90, 0.22), transparent 48%),
+    linear-gradient(165deg, #9a4a22 0%, #7a3418 42%, #4e1f0e 100%);
+  border-color: rgba(232, 121, 58, 0.45);
+}
+
+.panel.court-hard,
+.app-modal-card.court-hard,
+.history-item.court-hard {
+  background:
+    radial-gradient(120% 90% at 88% -10%, rgba(90, 160, 255, 0.2), transparent 48%),
+    linear-gradient(165deg, #2a5ea8 0%, #1a3f78 42%, #102848 100%);
+  border-color: rgba(96, 165, 250, 0.32);
 }
 
 .tourney-cta {

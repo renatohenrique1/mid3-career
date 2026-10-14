@@ -140,7 +140,7 @@ export function MatchHistory({
             return (
               <li
                 key={match.id}
-                className={`history-item history-item-clickable surface-${match.surface}`}
+                className={`history-item history-item-clickable surface-${match.surface} court-surface court-${match.surface}`}
               >
                 <button
                   type="button"

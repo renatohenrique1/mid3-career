@@ -732,6 +732,7 @@ export const BALL_OPTIONS = [
   { id: 'inni_clay', label: 'Inni Clay' },
   { id: 'wilson_rg', label: 'Wilson Roland Garros' },
   { id: 'wilson_us_open', label: 'Wilson US Open' },
+  { id: 'dunlop_atp', label: 'Dunlop ATP' },
 ] as const
 
 export function ballLabel(

@@ -60,7 +60,7 @@ export function MatchDetailModal({
       onClick={onClose}
     >
       <div
-        className="app-modal-card match-detail-modal"
+        className={`app-modal-card match-detail-modal court-surface court-${match.surface}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="match-detail-title"

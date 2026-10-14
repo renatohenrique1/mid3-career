@@ -15,6 +15,7 @@ export type BallBrand =
   | 'inni_clay'
   | 'wilson_rg'
   | 'wilson_us_open'
+  | 'dunlop_atp'
 
 export type RacketModel =
   | 'wilson_blade_98'

@@ -87,7 +87,8 @@ create table if not exists public.matches (
       'inni_tournament',
       'inni_clay',
       'wilson_rg',
-      'wilson_us_open'
+      'wilson_us_open',
+      'dunlop_atp'
     )
   ),
   created_at timestamptz not null default now(),
