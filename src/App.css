@@ -2111,6 +2111,32 @@ select {
   padding: 0.7rem 0.8rem;
 }
 
+/* iOS date controls ignore the card width unless the grid item and
+   the input itself can shrink below the formatted date string. */
+input[type='date'] {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type='date']::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
+}
+
+input[type='date']::-webkit-datetime-edit,
+input[type='date']::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+  padding: 0;
+}
+
+.form-row > *,
+.date-range-grid > * {
+  min-width: 0;
+}
+
 input:focus,
 select:focus {
   outline: 2px solid rgba(249, 115, 22, 0.4);
