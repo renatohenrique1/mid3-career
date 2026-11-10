@@ -3958,6 +3958,15 @@ option {
   position: relative;
 }
 
+.career-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
 .career-avatar .medal-insignia,
 .career-avatar-link .medal-insignia {
   width: 0.95rem;
@@ -4057,6 +4066,21 @@ option {
 .player-avatar.size-sm { width: 1.85rem; height: 1.85rem; }
 .player-avatar.size-md { width: 3.25rem; height: 3.25rem; }
 .player-avatar.size-lg { width: 5.5rem; height: 5.5rem; }
+
+.player-avatar.is-photo {
+  background: #121214;
+}
+
+.photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.photo-actions .btn {
+  min-height: 2.5rem;
+}
 
 .player-avatar.is-initial {
   background:

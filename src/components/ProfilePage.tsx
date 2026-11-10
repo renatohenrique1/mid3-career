@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { removeStoredAvatar, storeAvatarFile } from '../data/avatarPhoto'
 import { computeCareerStats } from '../data/career'
 import { seasonMedalForIndex } from '../data/ranking'
 import {
@@ -65,6 +66,10 @@ export function ProfilePage({
   )
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+  const galleryRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   const cooldown = nicknameCooldownMs(user)
   const namesLeft = nameChangesLeft(user)
@@ -91,6 +96,36 @@ export function ProfilePage({
     setPrimaryRacket(user.primaryRacket ?? '')
     setError('')
     setEditing(true)
+  }
+
+  async function applyPhoto(file: File | undefined) {
+    if (!file) return
+    setPhotoError('')
+    setPhotoBusy(true)
+    const stored = await storeAvatarFile(user.id, file)
+    if (!stored.ok) {
+      setPhotoBusy(false)
+      setPhotoError(stored.error)
+      return
+    }
+    const result = await onUpdateProfile({ avatarUrl: stored.url })
+    setPhotoBusy(false)
+    if (!result.ok) setPhotoError(result.error)
+  }
+
+  async function clearPhoto() {
+    setPhotoError('')
+    setPhotoBusy(true)
+    const result = await onUpdateProfile({ avatarUrl: null })
+    if (result.ok) await removeStoredAvatar(user.id)
+    setPhotoBusy(false)
+    if (!result.ok) setPhotoError(result.error)
+  }
+
+  function onPickPhoto(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    void applyPhoto(file)
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -202,6 +237,55 @@ export function ProfilePage({
       {editing ? (
         <form className="panel profile-edit" onSubmit={handleSave}>
           <h3>Editar</h3>
+
+          <fieldset className="format-field">
+            <legend>Foto de perfil</legend>
+            <div className="photo-actions">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={photoBusy}
+                onClick={() => galleryRef.current?.click()}
+              >
+                Enviar foto
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={photoBusy}
+                onClick={() => cameraRef.current?.click()}
+              >
+                Tirar foto
+              </button>
+              {user.avatarUrl ? (
+                <button
+                  type="button"
+                  className="link-btn"
+                  disabled={photoBusy}
+                  onClick={() => void clearPhoto()}
+                >
+                  Voltar ao desenho
+                </button>
+              ) : null}
+            </div>
+            <input
+              ref={galleryRef}
+              className="sr-only"
+              type="file"
+              accept="image/*"
+              onChange={onPickPhoto}
+            />
+            <input
+              ref={cameraRef}
+              className="sr-only"
+              type="file"
+              accept="image/*"
+              capture="user"
+              onChange={onPickPhoto}
+            />
+            {photoBusy ? <p className="field-hint">Enviando foto…</p> : null}
+            {photoError ? <p className="form-error">{photoError}</p> : null}
+          </fieldset>
 
           <AvatarPicker value={avatarId} name={name} onChange={setAvatarId} />
 

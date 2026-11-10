@@ -7,7 +7,7 @@ import type { AvatarId, User } from '../types'
 import { MedalInsignia } from './MedalInsignia'
 
 interface PlayerAvatarProps {
-  user: Pick<User, 'name' | 'avatarId'>
+  user: Pick<User, 'name' | 'avatarId'> & { avatarUrl?: string | null }
   size?: 'sm' | 'md' | 'lg'
   className?: string
   medal?: SeasonMedal | null
@@ -20,16 +20,18 @@ export function PlayerAvatar({
   medal = null,
 }: PlayerAvatarProps) {
   const option = AVATAR_OPTIONS.find((a) => a.id === user.avatarId)
-  const isInitial =
-    user.avatarId === 'initial' || !option?.src
+  const photo = user.avatarUrl?.trim() || ''
+  const isInitial = !photo && (user.avatarId === 'initial' || !option?.src)
 
   return (
     <span className={`player-avatar-wrap size-${size}`}>
       <span
-        className={`player-avatar size-${size} ${isInitial ? 'is-initial' : ''} ${className}`.trim()}
+        className={`player-avatar size-${size} ${isInitial ? 'is-initial' : ''} ${photo ? 'is-photo' : ''} ${className}`.trim()}
         aria-hidden
       >
-        {isInitial ? (
+        {photo ? (
+          <img src={photo} alt="" />
+        ) : isInitial ? (
           <span className="player-avatar-letter">{nameInitial(user.name)}</span>
         ) : (
           <img src={option!.src} alt="" />

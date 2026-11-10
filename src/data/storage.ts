@@ -77,6 +77,7 @@ function migrate(raw: unknown): AppData {
     nameChangesMax: u.nameChangesMax ?? 3,
     nicknameChangedAt: u.nicknameChangedAt ?? null,
     avatarId: u.avatarId ?? 'initial',
+    avatarUrl: u.avatarUrl ?? null,
     heightCm: u.heightCm ?? null,
     age: u.age ?? null,
     backhand: u.backhand ?? null,
@@ -192,6 +193,7 @@ export async function registerUser(input: {
     nameChangesMax: 2,
     nicknameChangedAt: nickname ? now : null,
     avatarId: 'initial',
+    avatarUrl: null,
     heightCm: null,
     age: null,
     backhand: null,
@@ -295,6 +297,7 @@ export function updateProfile(
   }
 
   if (input.avatarId !== undefined) next.avatarId = input.avatarId
+  if (input.avatarUrl !== undefined) next.avatarUrl = input.avatarUrl
   if (input.heightCm !== undefined) next.heightCm = input.heightCm
   if (input.age !== undefined) next.age = input.age
   if (input.backhand !== undefined) next.backhand = input.backhand

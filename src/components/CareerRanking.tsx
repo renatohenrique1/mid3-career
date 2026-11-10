@@ -30,6 +30,12 @@ function initials(name: string) {
     .join('')
 }
 
+function face(users: User[], playerId: string, name: string) {
+  const url = users.find((user) => user.id === playerId)?.avatarUrl
+  if (!url) return initials(name)
+  return <img src={url} alt="" />
+}
+
 function userName(users: User[], id: string) {
   return users.find((u) => u.id === id)?.name ?? '?'
 }
@@ -231,7 +237,7 @@ export function CareerRanking({
                     }}
                     aria-label={`Ver perfil de ${player.name}`}
                   >
-                    {initials(player.name)}
+                    {face(data.users, player.playerId, player.name)}
                     {seasonMedalForIndex(index) ? (
                       <MedalInsignia medal={seasonMedalForIndex(index)!} />
                     ) : null}
@@ -321,7 +327,7 @@ export function CareerRanking({
                         }}
                       >
                         <span className="career-avatar sm" aria-hidden>
-                          {initials(player.name)}
+                          {face(data.users, player.playerId, player.name)}
                           {seasonMedalForIndex(index) ? (
                             <MedalInsignia medal={seasonMedalForIndex(index)!} />
                           ) : null}

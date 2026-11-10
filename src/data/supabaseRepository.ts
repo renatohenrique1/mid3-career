@@ -42,6 +42,7 @@ type ProfileRow = {
   name_changes_max: number | null
   nickname_changed_at: string | null
   avatar_id: string | null
+  avatar_url: string | null
   height_cm: number | null
   age: number | null
   backhand: string | null
@@ -109,6 +110,7 @@ function mapUser(row: ProfileRow): User {
     nameChangesMax: row.name_changes_max ?? 3,
     nicknameChangedAt: row.nickname_changed_at ?? null,
     avatarId: (row.avatar_id as AvatarId | null) ?? 'initial',
+    avatarUrl: row.avatar_url ?? null,
     heightCm: row.height_cm ?? null,
     age: row.age ?? null,
     backhand: (row.backhand as BackhandType | null) ?? null,
@@ -318,6 +320,7 @@ export const supabaseRepository: DataRepository = {
       nameChangesMax: 2,
       nicknameChangedAt: nickname ? now : null,
       avatarId: 'initial',
+      avatarUrl: null,
       heightCm: null,
       age: null,
       backhand: null,
@@ -377,6 +380,7 @@ export const supabaseRepository: DataRepository = {
           nameChangesMax: 3,
           nicknameChangedAt: null,
           avatarId: 'initial' as const,
+          avatarUrl: null,
           heightCm: null,
           age: null,
           backhand: null,
@@ -450,6 +454,7 @@ export const supabaseRepository: DataRepository = {
     }
 
     if (input.avatarId !== undefined) update.avatar_id = input.avatarId
+    if (input.avatarUrl !== undefined) update.avatar_url = input.avatarUrl
     if (input.heightCm !== undefined) update.height_cm = input.heightCm
     if (input.age !== undefined) update.age = input.age
     if (input.backhand !== undefined) update.backhand = input.backhand

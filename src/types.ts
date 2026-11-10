@@ -43,6 +43,8 @@ export interface User {
   nameChangesMax: number
   nicknameChangedAt: string | null
   avatarId: AvatarId
+  /** Foto enviada pelo jogador. Quando existe, substitui o desenho. */
+  avatarUrl: string | null
   heightCm: number | null
   age: number | null
   backhand: BackhandType | null
@@ -244,6 +246,7 @@ export type ProfileUpdateInput = {
   name?: string
   nickname?: string
   avatarId?: AvatarId
+  avatarUrl?: string | null
   heightCm?: number | null
   age?: number | null
   backhand?: BackhandType | null
