@@ -93,6 +93,7 @@ create table if not exists public.matches (
   ),
   created_at timestamptz not null default now(),
   recorded_by_id uuid not null references public.profiles (id),
+  counts_for_ranking boolean not null default true,
   check (player_a_id <> player_b_id),
   check (games_a <> games_b)
 );

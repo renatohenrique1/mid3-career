@@ -81,6 +81,7 @@ type MatchRow = {
   ball: string | null
   racket_a: string | null
   racket_b: string | null
+  counts_for_ranking?: boolean | null
   created_at: string
   recorded_by_id: string
 }
@@ -155,6 +156,7 @@ function mapMatch(row: MatchRow): Match {
     ball: (row.ball as BallBrand | null) ?? null,
     racketA: (row.racket_a as RacketModel | null) ?? null,
     racketB: (row.racket_b as RacketModel | null) ?? null,
+    ...(row.counts_for_ranking === false ? { countsForRanking: false } : {}),
     createdAt: row.created_at,
     recordedById: row.recorded_by_id,
   }
@@ -697,6 +699,7 @@ export const supabaseRepository: DataRepository = {
         ball: match.ball ?? null,
         racket_a: match.racketA ?? null,
         racket_b: match.racketB ?? null,
+        counts_for_ranking: match.countsForRanking !== false,
         recorded_by_id: match.recordedById,
       })
       .select('id')
@@ -778,6 +781,9 @@ export const supabaseRepository: DataRepository = {
         ball: normalized.ball ?? null,
         racket_a: normalized.racketA ?? null,
         racket_b: normalized.racketB ?? null,
+        ...(normalized.countsForRanking === undefined
+          ? {}
+          : { counts_for_ranking: normalized.countsForRanking }),
       })
       .eq('id', matchId)
       .select('id')
@@ -929,6 +935,9 @@ export const supabaseRepository: DataRepository = {
           ball: payload.ball ?? null,
           racket_a: payload.racketA ?? null,
           racket_b: payload.racketB ?? null,
+          ...(payload.countsForRanking === undefined
+            ? {}
+            : { counts_for_ranking: payload.countsForRanking }),
         })
         .eq('id', row.match_id)
         .select('id')

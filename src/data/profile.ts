@@ -85,7 +85,7 @@ export function nameInitial(name: string): string {
   return trimmed.charAt(0).toUpperCase()
 }
 
-/** Contagem de sets vencidos: avulsos vs torneio. */
+/** Contagem de sets vencidos: ranking vs torneio. */
 export function countSetWinsSplit(
   userId: string,
   matches: Array<{
@@ -94,11 +94,13 @@ export function countSetWinsSplit(
     playerBId: string
     gamesA: number
     gamesB: number
+    countsForRanking?: boolean | null
   }>,
 ): { casual: number; tournament: number; total: number } {
   let casual = 0
   let tournament = 0
   for (const m of matches) {
+    if (m.countsForRanking === false) continue
     const won =
       (m.playerAId === userId && m.gamesA > m.gamesB) ||
       (m.playerBId === userId && m.gamesB > m.gamesA)

@@ -66,7 +66,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
         />
         <h1>Career</h1>
         <p className="tagline">
-          Ranking, torneios e sets avulsos — tudo claro, no mesmo lugar.
+          Ranking, torneios e cada set — tudo claro, no mesmo lugar.
         </p>
       </header>
 

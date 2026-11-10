@@ -633,7 +633,7 @@ export function addMatch(
 ): { ok: true; matchId: string } | { ok: false; error: string } {
   const data = loadData()
 
-  // Set avulso: só grava a partida.
+  // Set de ranking: só grava a partida.
   if (!match.tournamentId) {
     const nextMatch: Match = {
       ...match,

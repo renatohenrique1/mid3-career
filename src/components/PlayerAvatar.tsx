@@ -2,33 +2,40 @@ import {
   AVATAR_OPTIONS,
   nameInitial,
 } from '../data/profile'
+import type { SeasonMedal } from '../data/ranking'
 import type { AvatarId, User } from '../types'
+import { MedalInsignia } from './MedalInsignia'
 
 interface PlayerAvatarProps {
   user: Pick<User, 'name' | 'avatarId'>
   size?: 'sm' | 'md' | 'lg'
   className?: string
+  medal?: SeasonMedal | null
 }
 
 export function PlayerAvatar({
   user,
   size = 'md',
   className = '',
+  medal = null,
 }: PlayerAvatarProps) {
   const option = AVATAR_OPTIONS.find((a) => a.id === user.avatarId)
   const isInitial =
     user.avatarId === 'initial' || !option?.src
 
   return (
-    <span
-      className={`player-avatar size-${size} ${isInitial ? 'is-initial' : ''} ${className}`.trim()}
-      aria-hidden
-    >
-      {isInitial ? (
-        <span className="player-avatar-letter">{nameInitial(user.name)}</span>
-      ) : (
-        <img src={option!.src} alt="" />
-      )}
+    <span className={`player-avatar-wrap size-${size}`}>
+      <span
+        className={`player-avatar size-${size} ${isInitial ? 'is-initial' : ''} ${className}`.trim()}
+        aria-hidden
+      >
+        {isInitial ? (
+          <span className="player-avatar-letter">{nameInitial(user.name)}</span>
+        ) : (
+          <img src={option!.src} alt="" />
+        )}
+      </span>
+      {medal ? <MedalInsignia medal={medal} /> : null}
     </span>
   )
 }

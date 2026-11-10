@@ -1,12 +1,14 @@
 import { useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { computeCareerStats } from '../data/career'
+import { seasonMedalForIndex } from '../data/ranking'
 import {
   backhandLabel,
   countSetWinsSplit,
   racketLabel,
 } from '../data/profile'
 import type { AppData } from '../types'
+import { ProfileMedals } from './MedalInsignia'
 import { PlayerAvatar } from './PlayerAvatar'
 
 interface ProfileModalProps {
@@ -18,10 +20,14 @@ interface ProfileModalProps {
 export function ProfileModal({ data, userId, onClose }: ProfileModalProps) {
   const user = data.users.find((u) => u.id === userId) ?? null
 
+  const standings = useMemo(() => computeCareerStats(data), [data])
   const career = useMemo(() => {
     if (!user) return null
-    return computeCareerStats(data).find((c) => c.playerId === user.id) ?? null
-  }, [data, user])
+    return standings.find((c) => c.playerId === user.id) ?? null
+  }, [standings, user])
+  const medal = user
+    ? seasonMedalForIndex(standings.findIndex((s) => s.playerId === user.id))
+    : null
 
   const setWins = useMemo(() => {
     if (!user) return { total: 0, casual: 0, tournament: 0 }
@@ -75,13 +81,15 @@ export function ProfileModal({ data, userId, onClose }: ProfileModalProps) {
         </header>
 
         <div className="player-card-top">
-          <PlayerAvatar user={user} size="lg" />
+          <PlayerAvatar user={user} size="lg" medal={medal} />
           <div>
             <p className="player-handle">
               {user.nickname ? `@${user.nickname}` : 'Sem nickname'}
             </p>
           </div>
         </div>
+
+        {medal ? <ProfileMedals medal={medal} /> : null}
 
         <dl className="match-detail-stats">
           <div>
@@ -114,7 +122,7 @@ export function ProfileModal({ data, userId, onClose }: ProfileModalProps) {
               {setWins.total}
               <span className="muted-inline">
                 {' '}
-                ({setWins.casual} avulsos · {setWins.tournament} torneio)
+                ({setWins.casual} no ranking · {setWins.tournament} torneio)
               </span>
             </dd>
           </div>

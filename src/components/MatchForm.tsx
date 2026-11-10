@@ -14,6 +14,7 @@ import {
   pointsForWin,
   quickScoresForFormat,
   rankingHint,
+  rankingOnAvailable,
   resolveTiebreakFields,
   scoreErrorMessage,
   scoreMaxForFormat,
@@ -108,11 +109,14 @@ function summaryFromDraft(
         draft.tiebreakB,
         draft.tiebreakA,
       )
-  const points = pointsForWin(format, draft.gamesA, draft.gamesB, {
-    standings,
-    winnerId,
-    loserId,
-  })
+  const points =
+    draft.countsForRanking === false
+      ? 0
+      : pointsForWin(format, draft.gamesA, draft.gamesB, {
+          standings,
+          winnerId,
+          loserId,
+        })
   return { winnerName, loserName, score, points }
 }
 
@@ -173,6 +177,8 @@ export function MatchForm({
   const [savedSets, setSavedSets] = useState<SessionSavedSet[]>([])
   const [showDone, setShowDone] = useState(false)
   const [editingMatchId, setEditingMatchId] = useState<string | null>(null)
+  const [countsForRanking, setCountsForRanking] = useState(false)
+  const rankingOnOpen = rankingOnAvailable(today)
 
   useEffect(() => {
     const a = userById(users, playerAId)
@@ -312,6 +318,7 @@ export function MatchForm({
     setBall(draft.ball ?? '')
     setRacketA(draft.racketA ?? '')
     setRacketB(draft.racketB ?? '')
+    setCountsForRanking(draft.countsForRanking !== false)
   }
 
   function resetForNext() {
@@ -323,6 +330,7 @@ export function MatchForm({
     setDurationMinutes('')
     setBall('')
     setEditingMatchId(null)
+    if (!rankingOnAvailable()) setCountsForRanking(false)
     setShowDone(false)
     setError('')
     window.scrollTo(0, 0)
@@ -432,6 +440,11 @@ export function MatchForm({
       ball: ball || null,
       racketA: racketA || null,
       racketB: racketB || null,
+      countsForRanking: isTournament
+        ? true
+        : rankingOnOpen || editingMatchId
+          ? countsForRanking
+          : false,
       recordedById: currentUser.id,
     }
     const summary = summaryFromDraft(draft, users, matchFormat, standings)
@@ -454,6 +467,7 @@ export function MatchForm({
           ball: draft.ball ?? null,
           racketA: draft.racketA ?? null,
           racketB: draft.racketB ?? null,
+          countsForRanking: draft.countsForRanking !== false,
         })
         if (!result.ok) {
           setError(result.error)
@@ -513,7 +527,7 @@ export function MatchForm({
     const contextLabel =
       isTournament && tournamentName
         ? `${tournamentName} · ${formatLabel(matchFormat)}`
-        : 'Set avulso · Clássico'
+        : 'Ranking · Clássico'
 
     return (
       <section className="register-page register-page-done">
@@ -534,9 +548,9 @@ export function MatchForm({
                   <strong>{set.loserName}</strong>
                 </p>
                 <p className="register-success-detail">
-                  +{set.points} pt{set.points === 1 ? '' : 's'}
-                  {' · '}
-                  {contextLabel}
+                  {set.draft.countsForRanking === false
+                    ? 'Não pontua · Off ranking'
+                    : `+${set.points} pt${set.points === 1 ? '' : 's'} · ${contextLabel}`}
                 </p>
                 <div className="register-success-item-actions">
                   <button
@@ -600,10 +614,53 @@ export function MatchForm({
         <p>
           {isTournament && tournamentName
             ? `${tournamentName} · ${formatLabel(matchFormat)}`
-            : 'Set avulso · Clássico'}
+            : countsForRanking
+              ? 'Ranking · Clássico'
+              : 'Off ranking · Clássico'}
         </p>
-        <p className="register-format-hint">{formatBlurb(matchFormat)}</p>
-        <p className="register-format-hint muted">{rankingHint(matchFormat)}</p>
+        {isTournament ? null : (
+          <fieldset className="surface-field ranking-field">
+            <legend>Ranking</legend>
+            <div className="surface-toggle ranking-toggle" role="group" aria-label="Ranking">
+              <button
+                type="button"
+                className={countsForRanking ? '' : 'active'}
+                onClick={() => setCountsForRanking(false)}
+              >
+                Off
+              </button>
+              <button
+                type="button"
+                className={countsForRanking ? 'active on' : 'on'}
+                disabled={!rankingOnOpen}
+                aria-disabled={!rankingOnOpen}
+                title={
+                  rankingOnOpen
+                    ? 'Este set entra no ranking'
+                    : 'Disponível em 01/01/2027'
+                }
+                onClick={() => {
+                  if (rankingOnOpen) setCountsForRanking(true)
+                }}
+              >
+                On
+              </button>
+            </div>
+            {rankingOnOpen ? null : (
+              <p className="quick-hint">On libera em 01/01/2027.</p>
+            )}
+          </fieldset>
+        )}
+        {isTournament || countsForRanking ? (
+          <>
+            <p className="register-format-hint">{formatBlurb(matchFormat)}</p>
+            <p className="register-format-hint muted">{rankingHint(matchFormat)}</p>
+          </>
+        ) : (
+          <p className="register-format-hint muted">
+            Este set não entra no ranking.
+          </p>
+        )}
       </header>
 
       <form className="register-page-form" onSubmit={handleSubmit}>

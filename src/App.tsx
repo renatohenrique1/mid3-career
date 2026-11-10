@@ -1,6 +1,7 @@
 import { AuthScreen } from './components/AuthScreen'
 import { AppShell } from './components/AppShell'
 import { NicknameSetup } from './components/NicknameSetup'
+import { SeasonPreview } from './components/SeasonRecap'
 import { useAppData } from './data/useAppData'
 import { needsNicknameSetup } from './data/profile'
 import './App.css'
@@ -25,6 +26,13 @@ export default function App() {
     withdrawMatchEdit,
     resolveMatchEdit,
   } = useAppData()
+
+  if (
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get('preview') === 'temporada'
+  ) {
+    return <SeasonPreview />
+  }
 
   if (booting) {
     return (

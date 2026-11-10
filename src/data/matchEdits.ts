@@ -51,6 +51,12 @@ export function normalizeMatchEditPayload(raw: unknown): MatchEditPayload {
     ball: (p.ball as MatchEditPayload['ball']) ?? null,
     racketA: (p.racketA ?? p.racket_a ?? null) as MatchEditPayload['racketA'],
     racketB: (p.racketB ?? p.racket_b ?? null) as MatchEditPayload['racketB'],
+    ...(p.countsForRanking === undefined && p.counts_for_ranking === undefined
+      ? {}
+      : {
+          countsForRanking:
+            p.countsForRanking !== false && p.counts_for_ranking !== false,
+        }),
   }
 }
 
@@ -117,6 +123,14 @@ export function describeMatchEditChanges(
     payload.playerBId !== match.playerBId
   ) {
     changes.push('Jogadores alterados')
+  }
+  if (
+    payload.countsForRanking !== undefined &&
+    payload.countsForRanking !== (match.countsForRanking !== false)
+  ) {
+    changes.push(
+      `Ranking: ${match.countsForRanking === false ? 'Off' : 'On'} → ${payload.countsForRanking ? 'On' : 'Off'}`,
+    )
   }
 
   return changes.length > 0 ? changes : ['Sem diferenças detectadas']

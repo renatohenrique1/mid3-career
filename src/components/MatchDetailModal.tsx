@@ -137,7 +137,13 @@ export function MatchDetailModal({
           </div>
           <div>
             <dt>Contexto</dt>
-            <dd>{tournament ? tournament.name : 'Set avulso'}</dd>
+            <dd>
+              {tournament
+                ? tournament.name
+                : match.countsForRanking === false
+                  ? 'Off ranking'
+                  : 'Ranking'}
+            </dd>
           </div>
           <div>
             <dt>Registrado por</dt>

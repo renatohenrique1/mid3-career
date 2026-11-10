@@ -1,11 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { buildRankingTimeline } from '../data/analytics'
 import {
   computeCareerStats,
   computeH2H,
   formatDiff,
   h2HForPlayer,
 } from '../data/career'
+import {
+  seasonMedalForIndex,
+  seasonMedalLabel,
+  type SeasonMedal,
+} from '../data/ranking'
 import type { AppData, User } from '../types'
+import { MedalInsignia, SeasonMedalArt } from './MedalInsignia'
+import { RankingLineChart } from './Stats'
 
 interface CareerRankingProps {
   data: AppData
@@ -25,17 +34,131 @@ function userName(users: User[], id: string) {
   return users.find((u) => u.id === id)?.name ?? '?'
 }
 
+const PODIUM = [
+  { label: 'Ouro', className: 'medal-gold' },
+  { label: 'Prata', className: 'medal-silver' },
+  { label: 'Bronze', className: 'medal-bronze' },
+] as const
+
+function podiumMedal(index: number) {
+  return PODIUM[index] ?? null
+}
+
+function firstName(name: string) {
+  return name.trim().split(/\s+/)[0] ?? name
+}
+
+type CeremonyStep = {
+  id: string
+  name: string
+  medal: SeasonMedal
+  role: string
+}
+
+function ceremonySteps(
+  players: Array<{ playerId: string; name: string }>,
+  viewerId: string,
+): CeremonyStep[] {
+  const steps: CeremonyStep[] = []
+  const champion = players[0]
+  if (champion) {
+    steps.push({
+      id: 'champion',
+      name: champion.name,
+      medal: 'gold',
+      role: 'Campeão',
+    })
+  }
+  const awardIndex = players.findIndex((player) => player.playerId === viewerId)
+  const medal = seasonMedalForIndex(awardIndex)
+  const viewer = awardIndex >= 0 ? players[awardIndex] : undefined
+  if (viewer && medal) {
+    steps.push({
+      id: `${viewer.playerId}-${medal}`,
+      name: viewer.name,
+      medal,
+      role: seasonMedalLabel(medal),
+    })
+  }
+  return steps
+}
+
+function Ceremony({
+  players,
+  viewerId,
+  onDone,
+}: {
+  players: Array<{ playerId: string; name: string }>
+  viewerId: string
+  onDone: () => void
+}) {
+  const rosterKey = `${viewerId}:${players.map((player) => player.playerId).join('|')}`
+  // A identidade nova de `players` a cada render zeraria o timer. `rosterKey` é o que muda de verdade.
+  // oxlint-disable-next-line react-hooks/exhaustive-deps
+  const steps = useMemo(() => ceremonySteps(players, viewerId), [rosterKey])
+  const [index, setIndex] = useState(0)
+  const [leaving, setLeaving] = useState(false)
+  const step = steps[index]
+  const last = index >= steps.length - 1
+
+  useEffect(() => {
+    const current = steps[index]
+    if (!current) return
+    const isLast = index >= steps.length - 1
+    const hold = current.role === 'Campeão' ? 2600 : 2200
+    const advanceTimer = window.setTimeout(() => {
+      if (isLast) setLeaving(true)
+      else setIndex((value) => value + 1)
+    }, hold)
+    const doneTimer = isLast
+      ? window.setTimeout(onDone, hold + 480)
+      : undefined
+    return () => {
+      window.clearTimeout(advanceTimer)
+      if (doneTimer) window.clearTimeout(doneTimer)
+    }
+  }, [index, onDone, steps])
+
+  if (!step) return null
+
+  return createPortal(
+    <button
+      type="button"
+      className={`champ-intro tone-${step.medal}${leaving ? ' is-leaving' : ''}`}
+      onClick={() => {
+        if (last) onDone()
+        else setIndex((current) => current + 1)
+      }}
+    >
+      <div key={step.id} className="champ-card">
+        <SeasonMedalArt
+          medal={step.medal}
+          className={`champ-medal tone-${step.medal}`}
+        />
+        <p className="champ-kicker">Temporada 2026</p>
+        <p className="champ-name">{firstName(step.name)}</p>
+        <p className="champ-role">{step.role}</p>
+        <p className="champ-skip">Toque para continuar</p>
+      </div>
+    </button>,
+    document.body,
+  )
+}
+
 export function CareerRanking({
   data,
   currentUser,
   onOpenProfile,
 }: CareerRankingProps) {
   const stats = useMemo(() => computeCareerStats(data), [data])
+  const timeline = useMemo(() => buildRankingTimeline(data), [data])
   const h2h = useMemo(
     () => computeH2H(data.users, data.matches),
     [data.users, data.matches],
   )
   const [selectedId, setSelectedId] = useState<string | null>(currentUser.id)
+  const [showChampion, setShowChampion] = useState(true)
+  const dismissChampion = useCallback(() => setShowChampion(false), [])
 
   const selected =
     stats.find((s) => s.playerId === selectedId) ?? stats[0] ?? null
@@ -47,11 +170,23 @@ export function CareerRanking({
 
   return (
     <section className="career-home">
+      {showChampion && stats.length > 0 ? (
+        <Ceremony
+          players={stats.slice(0, 3).map((player) => ({
+            playerId: player.playerId,
+            name: player.name,
+          }))}
+          viewerId={currentUser.id}
+          onDone={dismissChampion}
+        />
+      ) : null}
       <header className="sets-hero sets-hero-compact">
-        <h2>Ranking</h2>
+        <p className="tourney-kicker">Temporada 2026</p>
+        <h2>Ranking encerrado</h2>
         <p>
-          Classificação por pontos (3 + diferença de games). 1º vs 3º: só 3 pts
-          em 7–6, 7–5, 6–4 ou 6–3.
+          {stats.length >= 3
+            ? `${firstName(stats[0].name)} no ouro, ${firstName(stats[1].name)} na prata e ${firstName(stats[2].name)} no bronze.`
+            : 'Classificação fechada.'}
         </p>
       </header>
 
@@ -78,7 +213,15 @@ export function CareerRanking({
                     }
                   }}
                 >
-                  <span className="career-mobile-rank">{index + 1}</span>
+                  <span
+                    className={`career-mobile-rank${
+                      podiumMedal(index)
+                        ? ` ${podiumMedal(index)!.className}`
+                        : ''
+                    }`}
+                  >
+                    {index + 1}
+                  </span>
                   <button
                     type="button"
                     className="career-avatar sm career-avatar-link"
@@ -89,6 +232,9 @@ export function CareerRanking({
                     aria-label={`Ver perfil de ${player.name}`}
                   >
                     {initials(player.name)}
+                    {seasonMedalForIndex(index) ? (
+                      <MedalInsignia medal={seasonMedalForIndex(index)!} />
+                    ) : null}
                   </button>
                   <span className="career-mobile-main">
                     <button
@@ -105,6 +251,11 @@ export function CareerRanking({
                       ) : null}
                     </button>
                     <span>
+                      {podiumMedal(index) ? (
+                        <em className={`medal ${podiumMedal(index)!.className}`}>
+                          {podiumMedal(index)!.label}
+                        </em>
+                      ) : null}
                       {player.setWins}V · {player.setLosses}D ·{' '}
                       {player.titles} tít. · {formatDiff(player.gameDiff)}
                     </span>
@@ -151,7 +302,15 @@ export function CareerRanking({
                     tabIndex={0}
                     aria-selected={selected?.playerId === player.playerId}
                   >
-                    <td className="num">{index + 1}</td>
+                    <td
+                      className={`num rank-cell${
+                        podiumMedal(index)
+                          ? ` ${podiumMedal(index)!.className}`
+                          : ''
+                      }`}
+                    >
+                      {index + 1}
+                    </td>
                     <td className="player-cell">
                       <button
                         type="button"
@@ -163,6 +322,9 @@ export function CareerRanking({
                       >
                         <span className="career-avatar sm" aria-hidden>
                           {initials(player.name)}
+                          {seasonMedalForIndex(index) ? (
+                            <MedalInsignia medal={seasonMedalForIndex(index)!} />
+                          ) : null}
                         </span>
                         <span>
                           <strong>
@@ -171,6 +333,11 @@ export function CareerRanking({
                               <span className="you-tag"> você</span>
                             ) : null}
                           </strong>
+                          {podiumMedal(index) ? (
+                            <em className={`medal ${podiumMedal(index)!.className}`}>
+                              {podiumMedal(index)!.label}
+                            </em>
+                          ) : null}
                         </span>
                       </button>
                     </td>
@@ -192,6 +359,14 @@ export function CareerRanking({
           <p className="table-hint">Toque num jogador para ver o H2H.</p>
         </div>
       )}
+
+      <article className="panel stats-chart-card">
+        <div className="panel-head">
+          <h2>Ranking</h2>
+          <p>pontos acumulados por data</p>
+        </div>
+        <RankingLineChart timeline={timeline} />
+      </article>
 
       {selected ? (
         <section className="panel h2h-panel">

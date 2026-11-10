@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { computeCareerStats } from '../data/career'
+import { seasonMedalForIndex } from '../data/ranking'
 import {
   BACKHAND_OPTIONS,
   backhandLabel,
@@ -18,6 +19,7 @@ import type {
   RacketModel,
   User,
 } from '../types'
+import { ProfileMedals } from './MedalInsignia'
 import { AvatarPicker, PlayerAvatar } from './PlayerAvatar'
 
 interface ProfilePageProps {
@@ -35,10 +37,13 @@ export function ProfilePage({
 }: ProfilePageProps) {
   const user = currentUser
 
+  const standings = useMemo(() => computeCareerStats(data), [data])
   const career = useMemo(() => {
-    const all = computeCareerStats(data)
-    return all.find((c) => c.playerId === user.id)
-  }, [data, user.id])
+    return standings.find((c) => c.playerId === user.id)
+  }, [standings, user.id])
+  const medal = seasonMedalForIndex(
+    standings.findIndex((s) => s.playerId === user.id),
+  )
 
   const setWins = useMemo(
     () => countSetWinsSplit(user.id, data.matches),
@@ -139,7 +144,7 @@ export function ProfilePage({
 
       <article className="panel player-card">
         <div className="player-card-top">
-          <PlayerAvatar user={user} size="lg" />
+          <PlayerAvatar user={user} size="lg" medal={medal} />
           <div>
             <h3>{user.name}</h3>
             <p className="player-handle">
@@ -147,6 +152,8 @@ export function ProfilePage({
             </p>
           </div>
         </div>
+
+        {medal ? <ProfileMedals medal={medal} /> : null}
 
         <dl className="player-card-stats">
           <div>
@@ -175,7 +182,7 @@ export function ProfilePage({
               {setWins.total}
               <span className="muted-inline">
                 {' '}
-                ({setWins.casual} avulsos · {setWins.tournament} torneio)
+                ({setWins.casual} no ranking · {setWins.tournament} torneio)
               </span>
             </dd>
           </div>

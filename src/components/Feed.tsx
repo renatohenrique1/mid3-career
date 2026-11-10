@@ -4,7 +4,7 @@ import {
   formatFeedWhen,
   matchWinnerId,
 } from '../data/feed'
-import { ballLabel, formatDuration, formatMatchScore, formatShortLabel, surfaceLabel } from '../data/ranking'
+import { ballLabel, formatDuration, formatMatchScore, formatShortLabel, matchCountsForRanking, surfaceLabel } from '../data/ranking'
 import { courtLabel, venueLabel } from '../data/venues'
 import type { AppData, FeedItem, Match, User } from '../types'
 
@@ -16,6 +16,7 @@ interface FeedProps {
   onOpenTournament: (tournamentId: string) => void
   onOpenMatch?: (matchId: string) => void
   onRegisterSet?: () => void
+  onOpenRecap?: () => void
 }
 
 function userName(users: User[], id: string) {
@@ -25,7 +26,9 @@ function userName(users: User[], id: string) {
 function matchesFilter(item: FeedItem, filter: FeedFilter) {
   if (filter === 'all') return true
   if (filter === 'wins') return item.kind === 'tournament_won'
-  if (filter === 'casual') return item.kind === 'casual_set'
+  if (filter === 'casual') {
+    return item.kind === 'casual_set' && matchCountsForRanking(item.match)
+  }
   return item.kind === 'tournament_set'
 }
 
@@ -51,6 +54,7 @@ export function Feed({
   onOpenTournament,
   onOpenMatch,
   onRegisterSet,
+  onOpenRecap,
 }: FeedProps) {
   const [filter, setFilter] = useState<FeedFilter>('all')
   const feed = useMemo(() => buildFeed(data), [data])
@@ -75,6 +79,14 @@ export function Feed({
         ) : null}
       </header>
 
+      {onOpenRecap && data.matches.length > 0 ? (
+        <button type="button" className="recap-entry" onClick={onOpenRecap}>
+          <span className="tourney-kicker">Retrospectiva</span>
+          <strong>Temporada</strong>
+          <span>O resumo do que já foi jogado</span>
+        </button>
+      ) : null}
+
       <div className="feed-filters feed-filters-4" role="tablist" aria-label="Filtro do feed">
         <button
           type="button"
@@ -88,7 +100,7 @@ export function Feed({
           className={filter === 'casual' ? 'active' : ''}
           onClick={() => setFilter('casual')}
         >
-          Avulsos
+          Ranking
         </button>
         <button
           type="button"
@@ -223,7 +235,9 @@ function FeedCard({
         <span className={`feed-badge ${isTournament ? 'orange' : 'gray'}`}>
           {isTournament
             ? `Set · ${formatShortLabel(item.tournament.format ?? 'classic')}`
-            : 'Set · Avulso'}
+            : matchCountsForRanking(match)
+              ? 'Set · Ranking'
+              : 'Set · Off ranking'}
         </span>
         <time dateTime={item.at}>{formatFeedWhen(item.at)}</time>
       </div>
@@ -271,7 +285,9 @@ function FeedCard({
             {item.tournament.name}
           </button>
         ) : (
-          <span className="feed-context-chip casual">Fora de torneio</span>
+          <span className="feed-context-chip casual">
+            {matchCountsForRanking(match) ? 'Ranking' : 'Off ranking'}
+          </span>
         )}
       </div>
       {onOpenMatch ? (

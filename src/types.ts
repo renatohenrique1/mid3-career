@@ -90,8 +90,13 @@ export interface Tournament {
 
 export interface Match {
   id: string
-  /** null = set avulso (fora de torneio) */
+  /** null = set fora de torneio */
   tournamentId: TournamentId | null
+  /**
+   * false = não entra no ranking.
+   * Ausente nos sets antigos, que contam.
+   */
+  countsForRanking?: boolean
   date: string
   surface: Surface
   /** Local do set (legado sem campo = null) */
@@ -140,6 +145,8 @@ export type MatchEditPayload = {
   ball?: BallBrand | null
   racketA?: RacketModel | null
   racketB?: RacketModel | null
+  /** Omitido = não altera. false tira o set do ranking. */
+  countsForRanking?: boolean
 }
 
 export interface MatchEditRequest {
@@ -181,6 +188,7 @@ export type AppArea =
   | 'ranking'
   | 'stats'
   | 'tournaments'
+  | 'finals'
   | 'history'
   | 'profile'
 

@@ -1,6 +1,10 @@
 import type { AppData, Match } from '../types'
 import { computeCareerStats, computeH2H } from './career'
-import { pointsForWin, sortMatchesChronologically } from './ranking'
+import {
+  matchCountsForRanking,
+  pointsForWin,
+  sortMatchesChronologically,
+} from './ranking'
 import { venueLabel } from './venues'
 
 export interface ChartSlice {
@@ -51,7 +55,6 @@ export interface AnalyticsSummary {
   venues: ChartSlice[]
   players: PlayerBar[]
   rivalry: RivalryChart | null
-  rankingTimeline: RankingTimeline
 }
 
 const PLAYER_COLORS = [
@@ -103,7 +106,7 @@ function formatShortDate(iso: string) {
   return `${d}/${m}`
 }
 
-function buildRankingTimeline(data: AppData): RankingTimeline {
+export function buildRankingTimeline(data: AppData): RankingTimeline {
   const sorted = sortMatchesChronologically(data.matches)
 
   if (sorted.length === 0) {
@@ -138,6 +141,7 @@ function buildRankingTimeline(data: AppData): RankingTimeline {
       flushDay()
       day = match.date
     }
+    if (!matchCountsForRanking(match)) continue
     const winnerId =
       match.gamesA > match.gamesB ? match.playerAId : match.playerBId
     const loserId =
@@ -308,6 +312,5 @@ export function computeAnalytics(data: AppData): AnalyticsSummary {
     venues,
     players,
     rivalry,
-    rankingTimeline: buildRankingTimeline(data),
   }
 }

@@ -7,7 +7,11 @@ import type {
   User,
   UserId,
 } from '../types'
-import { pointsForWin, sortMatchesChronologically } from './ranking'
+import {
+  matchCountsForRanking,
+  pointsForWin,
+  sortMatchesChronologically,
+} from './ranking'
 
 function pairKey(a: UserId, b: UserId) {
   return a < b ? `${a}::${b}` : `${b}::${a}`
@@ -34,6 +38,7 @@ export function computeCareerStats(data: AppData): CareerStats[] {
   }
 
   for (const match of sortMatchesChronologically(data.matches)) {
+    if (!matchCountsForRanking(match)) continue
     const a = stats.get(match.playerAId)
     const b = stats.get(match.playerBId)
     if (!a || !b) continue
@@ -121,6 +126,7 @@ export function computeH2H(users: User[], matches: Match[]): H2HRecord[] {
   }
 
   for (const match of matches) {
+    if (!matchCountsForRanking(match)) continue
     const key = pairKey(match.playerAId, match.playerBId)
     const record = map.get(key)
     if (!record) continue

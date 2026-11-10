@@ -192,7 +192,7 @@ function RivalryChartView({ rivalry }: { rivalry: RivalryChart }) {
   )
 }
 
-function RankingLineChart({ timeline }: { timeline: RankingTimeline }) {
+export function RankingLineChart({ timeline }: { timeline: RankingTimeline }) {
   const { dates, series } = timeline
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
@@ -391,7 +391,7 @@ export function Stats({ data }: StatsProps) {
     <section className="stats-home">
       <header className="sets-hero sets-hero-compact">
         <h2>Estatísticas</h2>
-        <p>Gráficos do grupo: ranking, placares, locais e rivalidades.</p>
+        <p>Gráficos do grupo: placares, locais e rivalidades.</p>
       </header>
 
       <div className="tourney-stats" aria-label="Números gerais">
@@ -421,14 +421,6 @@ export function Stats({ data }: StatsProps) {
         </div>
       ) : (
         <div className="stats-grid">
-          <article className="panel stats-chart-card stats-chart-wide">
-            <div className="panel-head">
-              <h2>Ranking</h2>
-              <p>pontos acumulados por data</p>
-            </div>
-            <RankingLineChart timeline={analytics.rankingTimeline} />
-          </article>
-
           <article className="panel stats-chart-card">
             <div className="panel-head">
               <h2>Superfície</h2>

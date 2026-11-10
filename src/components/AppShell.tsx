@@ -23,6 +23,7 @@ import type {
 } from '../types'
 import { CareerRanking } from './CareerRanking'
 import { Feed } from './Feed'
+import { FinalsPage } from './FinalsPage'
 import { MatchDetailModal } from './MatchDetailModal'
 import { MatchForm } from './MatchForm'
 import { MatchHistory } from './MatchHistory'
@@ -30,10 +31,12 @@ import {
   PendingEditsModal,
   type PendingApprovalItem,
 } from './PendingEditsModal'
+import { seasonMedalForIndex } from '../data/ranking'
 import { PlayerAvatar } from './PlayerAvatar'
 import { ProfileModal } from './ProfileModal'
 import { ProfilePage } from './ProfilePage'
 import { Ranking } from './Ranking'
+import { SeasonRecap } from './SeasonRecap'
 import { Stats } from './Stats'
 import { TournamentFixtures } from './TournamentFixtures'
 import { TournamentList } from './TournamentList'
@@ -129,9 +132,10 @@ export function AppShell({
   const [profileModalUserId, setProfileModalUserId] = useState<string | null>(
     null,
   )
+  const [recapOpen, setRecapOpen] = useState(false)
 
   const casualMatches = useMemo(
-    () => matches.filter((m) => !m.tournamentId),
+    () => matches.filter((m) => !m.tournamentId && m.countsForRanking !== false),
     [matches],
   )
 
@@ -324,7 +328,15 @@ export function AppShell({
               onClick={() => switchArea('profile')}
               title="Meu perfil"
             >
-              <PlayerAvatar user={currentUser} size="sm" />
+              <PlayerAvatar
+                user={currentUser}
+                size="sm"
+                medal={seasonMedalForIndex(
+                  careerStandings.findIndex(
+                    (s) => s.playerId === currentUser.id,
+                  ),
+                )}
+              />
               <span className="user-name">{currentUser.name}</span>
             </button>
             <button type="button" className="link-btn" onClick={onLogout}>
@@ -334,7 +346,10 @@ export function AppShell({
         </header>
 
         {!activeTournament && !registerOpen ? (
-          <nav className="area-tabs area-tabs-6 frame" aria-label="Áreas">
+          <nav
+            className="area-tabs frame area-tabs-7"
+            aria-label="Áreas"
+          >
             <button
               type="button"
               className={area === 'feed' ? 'active' : ''}
@@ -366,6 +381,15 @@ export function AppShell({
             >
               Torneios
               <span>{tournaments.length}</span>
+            </button>
+            <button
+              type="button"
+              className={
+                area === 'finals' ? 'active area-tab-finals' : 'area-tab-finals'
+              }
+              onClick={() => switchArea('finals')}
+            >
+              Finals 2026
             </button>
             <button
               type="button"
@@ -439,6 +463,7 @@ export function AppShell({
             onOpenTournament={openTournament}
             onOpenMatch={setDetailMatchId}
             onRegisterSet={openRegister}
+            onOpenRecap={() => setRecapOpen(true)}
           />
         ) : null}
 
@@ -595,6 +620,10 @@ export function AppShell({
           </>
         ) : null}
 
+        {!registerOpen && area === 'finals' && !activeTournament ? (
+          <FinalsPage />
+        ) : null}
+
         {!registerOpen && area === 'history' && !activeTournament ? (
           <>
             <header className="sets-hero">
@@ -623,7 +652,7 @@ export function AppShell({
                 className={historyFilter === 'casual' ? 'active' : ''}
                 onClick={() => setHistoryFilter('casual')}
               >
-                Avulsos
+                Ranking
               </button>
               <button
                 type="button"
@@ -687,6 +716,10 @@ export function AppShell({
             setPendingModalDismissed(true)
           }}
         />
+      ) : null}
+
+      {recapOpen ? (
+        <SeasonRecap data={data} onClose={() => setRecapOpen(false)} />
       ) : null}
     </div>
   )

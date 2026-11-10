@@ -255,6 +255,34 @@ export function localDateString(date = new Date()): string {
   return `${y}-${m}-${d}`
 }
 
+/** A partir deste dia o botão On do registro pode ser clicado. */
+export const RANKING_ON_FROM = '2027-01-01'
+
+export function rankingOnAvailable(today = localDateString()): boolean {
+  return today >= RANKING_ON_FROM
+}
+
+/** Ausente ou true conta. false = set registrado fora do ranking. */
+export function matchCountsForRanking(match: {
+  countsForRanking?: boolean | null
+}): boolean {
+  return match.countsForRanking !== false
+}
+
+export type SeasonMedal = 'gold' | 'silver' | 'bronze'
+
+const SEASON_MEDALS = ['gold', 'silver', 'bronze'] as const
+
+export function seasonMedalForIndex(index: number): SeasonMedal | null {
+  return SEASON_MEDALS[index] ?? null
+}
+
+export function seasonMedalLabel(medal: SeasonMedal): string {
+  if (medal === 'gold') return 'Ouro'
+  if (medal === 'silver') return 'Prata'
+  return 'Bronze'
+}
+
 /**
  * Se o torneio tem período, a data do set precisa estar nele.
  * Sem startsOn/endsOn (legado / outros formatos) → liberado.
@@ -395,6 +423,7 @@ function headToHeadWins(
 ): number {
   let wins = 0
   for (const match of matches) {
+    if (!matchCountsForRanking(match)) continue
     const isPair =
       (match.playerAId === playerId && match.playerBId === opponentId) ||
       (match.playerAId === opponentId && match.playerBId === playerId)
@@ -450,7 +479,7 @@ function standingsFromStats(
   }))
 }
 
-/** Ranking com pontuação conforme o formato do torneio (ou clássico nos avulsos). */
+/** Ranking com pontuação conforme o formato do torneio (ou clássico nos sets de ranking). */
 export function computeRanking(
   users: User[],
   matches: Match[],
@@ -474,6 +503,7 @@ export function computeRanking(
   }
 
   for (const match of sortMatchesChronologically(matches)) {
+    if (!matchCountsForRanking(match)) continue
     const a = stats.get(match.playerAId)
     const b = stats.get(match.playerBId)
     if (!a || !b) continue
