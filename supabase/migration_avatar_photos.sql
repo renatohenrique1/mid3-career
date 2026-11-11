@@ -1,5 +1,5 @@
 -- Fotos de perfil. Rode no SQL Editor.
--- O app reduz a imagem para no máximo 512 px antes de enviar.
+-- O arquivo é a foto inteira. O enquadramento do ícone fica salvo no app.
 
 alter table public.profiles
   add column if not exists avatar_url text;

@@ -3958,6 +3958,13 @@ option {
   position: relative;
 }
 
+.career-avatar-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
 .career-avatar img {
   position: absolute;
   inset: 0;
@@ -4048,6 +4055,7 @@ option {
 }
 
 .player-avatar {
+  position: relative;
   display: inline-grid;
   place-items: center;
   border-radius: 50%;
@@ -4061,6 +4069,14 @@ option {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.player-avatar img.is-framed,
+.career-avatar img.is-framed {
+  position: absolute;
+  inset: auto;
+  max-width: none;
+  object-fit: fill;
 }
 
 .player-avatar.size-sm { width: 1.85rem; height: 1.85rem; }
@@ -4080,6 +4096,95 @@ option {
 
 .photo-actions .btn {
   min-height: 2.5rem;
+}
+
+.avatar-crop {
+  justify-items: center;
+}
+
+.avatar-crop-hint {
+  margin: 0;
+  text-align: center;
+}
+
+.avatar-crop-stage {
+  position: relative;
+  width: min(78vw, 20rem);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0a0a0a;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.avatar-crop-stage.is-dragging {
+  cursor: grabbing;
+}
+
+.avatar-crop-stage img {
+  position: absolute;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.avatar-crop-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    circle closest-side,
+    transparent 99%,
+    rgba(0, 0, 0, 0.62) 100%
+  );
+}
+
+.avatar-crop-ring {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(249, 115, 22, 0.92);
+  pointer-events: none;
+}
+
+.avatar-crop-loading {
+  margin: 0;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+}
+
+.avatar-crop-zoom {
+  display: grid;
+  gap: 0.35rem;
+  width: min(78vw, 20rem);
+}
+
+.avatar-crop-zoom span {
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+.avatar-crop-zoom input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.avatar-crop-actions {
+  width: 100%;
+}
+
+.avatar-crop-actions .btn:disabled,
+.avatar-crop .link-btn:disabled {
+  opacity: 0.55;
 }
 
 .player-avatar.is-initial {

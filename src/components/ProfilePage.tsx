@@ -1,5 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
-import { removeStoredAvatar, storeAvatarFile } from '../data/avatarPhoto'
+import {
+  loadAvatarForReframe,
+  removeStoredAvatar,
+  storeAvatarBlob,
+  type AvatarCropRect,
+  type FramedAvatar,
+} from '../data/avatarPhoto'
+import { AvatarCrop } from './AvatarCrop'
 import { computeCareerStats } from '../data/career'
 import { seasonMedalForIndex } from '../data/ranking'
 import {
@@ -68,6 +75,10 @@ export function ProfilePage({
   const [saving, setSaving] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
   const [photoError, setPhotoError] = useState('')
+  const [cropSession, setCropSession] = useState<{
+    file: File
+    initialCrop: AvatarCropRect | null
+  } | null>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
@@ -98,11 +109,10 @@ export function ProfilePage({
     setEditing(true)
   }
 
-  async function applyPhoto(file: File | undefined) {
-    if (!file) return
+  async function useCroppedPhoto(framed: FramedAvatar) {
     setPhotoError('')
     setPhotoBusy(true)
-    const stored = await storeAvatarFile(user.id, file)
+    const stored = await storeAvatarBlob(user.id, framed)
     if (!stored.ok) {
       setPhotoBusy(false)
       setPhotoError(stored.error)
@@ -110,7 +120,24 @@ export function ProfilePage({
     }
     const result = await onUpdateProfile({ avatarUrl: stored.url })
     setPhotoBusy(false)
-    if (!result.ok) setPhotoError(result.error)
+    if (!result.ok) {
+      setPhotoError(result.error)
+      return
+    }
+    setCropSession(null)
+  }
+
+  async function reframePhoto() {
+    if (!user.avatarUrl) return
+    setPhotoError('')
+    setPhotoBusy(true)
+    const loaded = await loadAvatarForReframe(user.id, user.avatarUrl)
+    setPhotoBusy(false)
+    if (!loaded.ok) {
+      setPhotoError(loaded.error)
+      return
+    }
+    setCropSession({ file: loaded.file, initialCrop: loaded.crop })
   }
 
   async function clearPhoto() {
@@ -125,7 +152,13 @@ export function ProfilePage({
   function onPickPhoto(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
-    void applyPhoto(file)
+    if (!file) return
+    if (file.type && !file.type.startsWith('image/')) {
+      setPhotoError('Escolha uma imagem.')
+      return
+    }
+    setPhotoError('')
+    setCropSession({ file, initialCrop: null })
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -260,6 +293,16 @@ export function ProfilePage({
               {user.avatarUrl ? (
                 <button
                   type="button"
+                  className="btn btn-ghost"
+                  disabled={photoBusy}
+                  onClick={() => void reframePhoto()}
+                >
+                  Enquadrar de novo
+                </button>
+              ) : null}
+              {user.avatarUrl ? (
+                <button
+                  type="button"
                   className="link-btn"
                   disabled={photoBusy}
                   onClick={() => void clearPhoto()}
@@ -283,8 +326,15 @@ export function ProfilePage({
               capture="user"
               onChange={onPickPhoto}
             />
-            {photoBusy ? <p className="field-hint">Enviando foto…</p> : null}
-            {photoError ? <p className="form-error">{photoError}</p> : null}
+            <p className="field-hint">
+              A foto abre para você enquadrar o ícone. Dá para enquadrar de novo depois.
+            </p>
+            {photoBusy && !cropSession ? (
+              <p className="field-hint">Abrindo foto…</p>
+            ) : null}
+            {photoError && !cropSession ? (
+              <p className="form-error">{photoError}</p>
+            ) : null}
           </fieldset>
 
           <AvatarPicker value={avatarId} name={name} onChange={setAvatarId} />
@@ -415,12 +465,32 @@ export function ProfilePage({
             <button
               type="button"
               className="link-btn"
-              onClick={() => setEditing(false)}
+              onClick={() => {
+                if (!photoBusy) setCropSession(null)
+                setEditing(false)
+              }}
             >
               Cancelar
             </button>
           </div>
         </form>
+      ) : null}
+
+      {cropSession ? (
+        <AvatarCrop
+          key={`${cropSession.file.name}:${cropSession.file.size}:${cropSession.file.lastModified}`}
+          file={cropSession.file}
+          initialCrop={cropSession.initialCrop}
+          busy={photoBusy}
+          error={photoError}
+          onCancel={() => {
+            if (!photoBusy) {
+              setCropSession(null)
+              setPhotoError('')
+            }
+          }}
+          onUse={useCroppedPhoto}
+        />
       ) : null}
     </section>
   )

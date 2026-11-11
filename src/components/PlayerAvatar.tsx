@@ -1,3 +1,4 @@
+import { readAvatarCrop } from '../data/avatarPhoto'
 import {
   AVATAR_OPTIONS,
   nameInitial,
@@ -30,7 +31,7 @@ export function PlayerAvatar({
         aria-hidden
       >
         {photo ? (
-          <img src={photo} alt="" />
+          <AvatarPhoto url={photo} />
         ) : isInitial ? (
           <span className="player-avatar-letter">{nameInitial(user.name)}</span>
         ) : (
@@ -39,6 +40,24 @@ export function PlayerAvatar({
       </span>
       {medal ? <MedalInsignia medal={medal} /> : null}
     </span>
+  )
+}
+
+export function AvatarPhoto({ url }: { url: string }) {
+  const crop = readAvatarCrop(url)
+  if (!crop?.width || !crop.height) return <img src={url} alt="" />
+  return (
+    <img
+      className="is-framed"
+      src={url}
+      alt=""
+      style={{
+        width: `${(crop.width / crop.size) * 100}%`,
+        height: `${(crop.height / crop.size) * 100}%`,
+        left: `${(-crop.sx / crop.size) * 100}%`,
+        top: `${(-crop.sy / crop.size) * 100}%`,
+      }}
+    />
   )
 }
 

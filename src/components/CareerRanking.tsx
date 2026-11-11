@@ -14,6 +14,7 @@ import {
 } from '../data/ranking'
 import type { AppData, User } from '../types'
 import { MedalInsignia, SeasonMedalArt } from './MedalInsignia'
+import { AvatarPhoto } from './PlayerAvatar'
 import { RankingLineChart } from './Stats'
 
 interface CareerRankingProps {
@@ -33,7 +34,11 @@ function initials(name: string) {
 function face(users: User[], playerId: string, name: string) {
   const url = users.find((user) => user.id === playerId)?.avatarUrl
   if (!url) return initials(name)
-  return <img src={url} alt="" />
+  return (
+    <span className="career-avatar-clip">
+      <AvatarPhoto url={url} />
+    </span>
+  )
 }
 
 function userName(users: User[], id: string) {
